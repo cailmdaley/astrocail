@@ -61,10 +61,9 @@ class Observation:
             
             # Display an unimportant imaage to get around the fact that the first 
             # image displayed with cgdisp in a session can't be deleted
-            global cgdisp_start
-            if cgdisp_start == False:
+            if not hasattr(Observation.clean, 'started'):
                 sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
-                cgdisp_start = True
+                Observation.clean.started=True
             
             #Get rms for countours
             imstat_out = sp.check_output(['imstat', 
@@ -264,7 +263,7 @@ class Model:
 # Create observations, default parameter dict, and let code know to display
 # test image before any others
 #==============================================================================#
-# cgdisp_start = False
+cgdisp_start = False
 # mar0 = Observation('aumic_band6_mar_spw0_FINAL', rms=6.5e-05)
 # mar1 = Observation('aumic_band6_mar_spw1_FINAL', rms=6.124e-05)
 # mar2 = Observation('aumic_band6_mar_spw2_FINAL', rms=6.068e-05)
