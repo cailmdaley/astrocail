@@ -264,43 +264,43 @@ class Model:
 # Create observations, default parameter dict, and let code know to display
 # test image before any others
 #==============================================================================#
-cgdisp_start = False
-mar0 = Observation('aumic_band6_mar_spw0_FINAL', rms=6.5e-05)
-mar1 = Observation('aumic_band6_mar_spw1_FINAL', rms=6.124e-05)
-mar2 = Observation('aumic_band6_mar_spw2_FINAL', rms=6.068e-05)
-mar3 = Observation('aumic_band6_mar_spw3_FINAL', rms=6.468e-05)
-aug0 = Observation('aumic_band6_aug_spw0_FINAL', rms=5.879e-05)
-aug1 = Observation('aumic_band6_aug_spw1_FINAL', rms=5.336e-05)
-aug2 = Observation('aumic_band6_aug_spw2_FINAL', rms=6.092e-05)
-aug3 = Observation('aumic_band6_aug_spw3_FINAL', rms=5.558e-05)
-jun0 = Observation('aumic_band6_jun_spw0_FINAL', rms=5.369e-05)
-jun1 = Observation('aumic_band6_jun_spw1_FINAL', rms=4.658e-05)
-jun2 = Observation('aumic_band6_jun_spw2_FINAL', rms=5.083e-05)
-jun3 = Observation('aumic_band6_jun_spw3_FINAL', rms=5.559e-05)
-band6_observations=[[mar0, mar1, mar2, mar3],
-                    [aug0, aug1, aug2, aug3],
-                    [jun0, jun1, jun2, jun3]]
-              
-params = OrderedDict([
-    ('temp_index',        -0.5),
-    ('m_disk',            3.67e-08),
-    ('sb_law',            2.3),
-    ('r_in',              8.8),
-    ('d_r',                31.5),
-    ('r_crit',            150.0),
-    ('inc',               89.5),
-    ('m_star',            0.31),
-    ('co_frac',           0.0001),
-    ('v_turb',            0.081),
-    ('Zq',                70.0),
-    ('column_densities', [0.79, 1000]),
-    ('abundance_bounds', [50, 500]),
-    ('hand',              -1),
-    ('rgrid_size',        500),
-    ('zgrid_size',        500),
-    ('l_star',            0.09),
-    ('scale_factor',      0.1),
-    ('pa',                128.41),
-    ('mar_starflux',      3.67e-4),
-    ('aug_starflux',      1.23e-4),
-    ('jun_starflux',      2.62e-4)])
+# cgdisp_start = False
+# mar0 = Observation('aumic_band6_mar_spw0_FINAL', rms=6.5e-05)
+# mar1 = Observation('aumic_band6_mar_spw1_FINAL', rms=6.124e-05)
+# mar2 = Observation('aumic_band6_mar_spw2_FINAL', rms=6.068e-05)
+# mar3 = Observation('aumic_band6_mar_spw3_FINAL', rms=6.468e-05)
+# aug0 = Observation('aumic_band6_aug_spw0_FINAL', rms=5.879e-05)
+# aug1 = Observation('aumic_band6_aug_spw1_FINAL', rms=5.336e-05)
+# aug2 = Observation('aumic_band6_aug_spw2_FINAL', rms=6.092e-05)
+# aug3 = Observation('aumic_band6_aug_spw3_FINAL', rms=5.558e-05)
+# jun0 = Observation('aumic_band6_jun_spw0_FINAL', rms=5.369e-05)
+# jun1 = Observation('aumic_band6_jun_spw1_FINAL', rms=4.658e-05)
+# jun2 = Observation('aumic_band6_jun_spw2_FINAL', rms=5.083e-05)
+# jun3 = Observation('aumic_band6_jun_spw3_FINAL', rms=5.559e-05)
+# band6_observations=[[mar0, mar1, mar2, mar3],
+#                     [aug0, aug1, aug2, aug3],
+#                     [jun0, jun1, jun2, jun3]]
+#               
+# params = OrderedDict([
+#     ('temp_index',        -0.5),
+#     ('m_disk',            3.67e-08),
+#     ('sb_law',            2.3),
+#     ('r_in',              8.8),
+#     ('d_r',                31.5),
+#     ('r_crit',            150.0),
+#     ('inc',               89.5),
+#     ('m_star',            0.31),
+#     ('co_frac',           0.0001),
+#     ('v_turb',            0.081),
+#     ('Zq',                70.0),
+#     ('column_densities', [0.79, 1000]),
+#     ('abundance_bounds', [50, 500]),
+#     ('hand',              -1),
+#     ('rgrid_size',        500),
+#     ('zgrid_size',        500),
+#     ('l_star',            0.09),
+#     ('scale_factor',      0.1),
+#     ('pa',                128.41),
+#     ('mar_starflux',      3.67e-4),
+#     ('aug_starflux',      1.23e-4),
+#     ('jun_starflux',      2.62e-4)])
