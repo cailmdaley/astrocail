@@ -83,24 +83,6 @@ class Observation:
 
 class Model:
 
-    def make_fits(self, params):
-        disk_params = params[:-1]
-        PA = params[-1]
-
-        model_disk = debris_disk.Disk(disk_params, obs=[300, 131, 300, 20])
-        raytrace.total_model(model_disk,
-            distance=9.91, # pc
-            imres=0.03, # arcsec/pix
-            xnpix=512, #image size in pixels
-            freq0=self.observations[0][0].uvf[0].header['CRVAL4']*1e-9, # obs frequeency
-            PA=PA,
-            offs=[0.0,0.0], # offset from image center
-            nchans=1, # continum
-            isgas=False, # continuum!
-            includeDust=True, #continuuum!!
-            extra=0.0, # ?
-            modfile = self.root + self.name)
-
     def obs_sample(self, obs, starflux):
         """
         Create model fits file with correct header information and sample using
