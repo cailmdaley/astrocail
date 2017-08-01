@@ -8,9 +8,10 @@ from disk_model import debris_disk, raytrace
 from astropy.io import fits
 
 class Observation:
-    def __init__(self, name, rms):
+    def __init__(self, root, name, rms):
         self.name = name
-        self.uvf  = fits.open('unsubtracted_obs_data/{}.uvf'.format(name))
+        self.root = root
+        self.uvf  = fits.open(self.root + self.name + '.uvf')
         
         self.rms = rms
         
@@ -28,16 +29,16 @@ class Observation:
         print('================================================================================')
         
         # Set observation-specific clean filename; clear filenames
-        sp.call('rm -rf unsubtracted_obs_data/{}.{{mp,bm,cl,cm}}'.format(self.name), shell=True)
+        sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(self.root + self.name), shell=True)
         
         #Dirty clean; save rms for clean cutoff
         sp.call(['invert', 
-            'vis=unsubtracted_obs_data/{}.vis'.format(self.name), 
-            'map=unsubtracted_obs_data/{}.mp'.format(self.name), 
-            'beam=unsubtracted_obs_data/{}.bm'.format(self.name), 
+            'vis={}.vis'.format(self.root + self.name), 
+            'map={}.mp'.format(self.root + self.name), 
+            'beam={}.bm'.format(self.root + self.name), 
             'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'])
         imstat_out=sp.check_output(['imstat', 
-            'in=unsubtracted_obs_data/{}.mp'.format(self.name), 
+            'in={}.mp'.format(self.root + self.name), 
             "region='boxes(256,0,512,200)'"])
         dirty_rms = float(imstat_out[-38:-29])
         print("Dirty rms is {}".format(dirty_rms))
@@ -45,15 +46,15 @@ class Observation:
         
         # Clean down to half the rms
         sp.call(['clean', 
-            'map=unsubtracted_obs_data/{}.mp'.format(self.name), 
-            'beam=unsubtracted_obs_data/{}.bm'.format(self.name), 
-            'out=unsubtracted_obs_data/{}.cl'.format(self.name), 
+            'map={}.mp'.format(self.root + self.name), 
+            'beam={}.bm'.format(self.root + self.name), 
+            'out={}.cl'.format(self.root + self.name), 
             'niters=100000', 'cutoff={}'.format(dirty_rms/2)])
         sp.call(['restor',
-            'map=unsubtracted_obs_data/{}.mp'.format(self.name),
-            'beam=unsubtracted_obs_data/{}.bm'.format(self.name),
-            'model=unsubtracted_obs_data/{}.cl'.format(self.name),
-            'out=unsubtracted_obs_data/{}.cm'.format(self.name)])
+            'map={}.mp'.format(self.root + self.name),
+            'beam={}.bm'.format(self.root + self.name),
+            'model={}.cl'.format(self.root + self.name),
+            'out={}.cm'.format(self.root + self.name)])
         
         # Display clean image with 2,4,6 sigma contours, if desired
         if show == True:
@@ -67,14 +68,14 @@ class Observation:
             
             #Get rms for countours
             imstat_out = sp.check_output(['imstat', 
-                'in=unsubtracted_obs_data/{}.cm'.format(self.name), 
+                'in={}.cm'.format(self.root + self.name), 
                 "region='boxes(256,0,512,200)'"])
             clean_rms = float(imstat_out[-38:-29])
             print("Clean rms is {}".format(clean_rms))
             
             # Display
             sp.call(['cgdisp', 
-                'in=unsubtracted_obs_data/{}.cm,unsubtracted_obs_data/{}.cm'.format(self.name, self.name), 
+                'in={}.cm,{}.cm'.format(self.root + self.name, self.root + self.name), 
                 'type=p,c', 'device=/xs', 
                 'slev=a,{}'.format(clean_rms), 'levs1=-6,-4,-2,2,4,6',
                 'region=arcsec,box(-5,-5,5,5)',
