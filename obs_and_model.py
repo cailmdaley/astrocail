@@ -61,10 +61,9 @@ class Observation:
 
             # Display an unimportant imaage to get around the fact that the first
             # image displayed with cgdisp in a session can't be deleted
-            global cgdisp_start
-            if cgdisp_start == False:
+            if not hasattr(Observation.clean, 'started'):
                 sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
-                cgdisp_start = True
+                Observation.clean.started=True
 
             #Get rms for countours
             imstat_out = sp.check_output(['imstat',
