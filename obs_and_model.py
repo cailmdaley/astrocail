@@ -17,6 +17,7 @@ class Observation:
         
         self.dec = self.uvf[3].data['DECEPO'][0]
         self.ra = self.uvf[3].data['RAEPO'][0]
+        
     def clean(self, show=True):
         """
         Clean and image (if desired) a observation-specific model.
@@ -28,7 +29,7 @@ class Observation:
         print('                            clean({})                                   ').format(self.name)
         print('================================================================================')
         
-        # Set observation-specific clean filename; clear filenames
+        # Set observation-specific clean filepath; clear filepaths
         sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(self.root + self.name), shell=True)
         
         #Dirty clean; save rms for clean cutoff
@@ -81,6 +82,7 @@ class Observation:
                 
 
 class Model:
+    
     def make_fits(self, params):
         disk_params = params[:-1]
         PA = params[-1]
@@ -97,7 +99,7 @@ class Model:
             isgas=False, # continuum!
             includeDust=True, #continuuum!!
             extra=0.0, # ?
-            modfile = '{}'.format(self.root + self.name))
+            modfile = self.root + self.name
         
     def obs_sample(self, obs, starflux):
         """
@@ -106,10 +108,10 @@ class Model:
         """
         
         # define observation-specific model name and delete any preexisting conditions
-        filename = self.root + self.name + obs.name
-        sp.call('rm -rf {}*'.format(filename), shell=True)
+        filepath = self.root + self.name + obs.name
+        sp.call('rm -rf {}*'.format(filepath), shell=True)
         
-        self.fits = fits.open('{}.fits'.format(self.name))
+        self.fits = fits.open(self.root + self.name + '.uvf')
         
         # add starflux to central pixel
         crpix = int(self.fits[0].header['CRPIX1'])
@@ -120,23 +122,23 @@ class Model:
         self.fits[0].header['CRVAL1'] = obs.ra
         self.fits[0].header['CRVAL2'] = obs.dec
         
-        self.fits.writeto('model_data/{}.fits'.format(filename))
+        self.fits.writeto(filepath + '.fits')
 
         # Convert model into MIRIAD .im image file
         sp.call(['fits', 'op=xyin', 
-            'in=model_data/{}.fits'.format(filename),
-            'out=model_data/{}.im'.format(filename)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            'in={}.fits'.format(filepath),
+            'out={}.im'.format(filepath)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
 
         # Sample the model image using the observation uv coverage
         sp.call(['uvmodel', 'options=replace',
-            'vis=unsubtracted_obs_data/{}.vis'.format(obs.name), 
-            'model=model_data/{}.im'.format(filename),
-            'out=model_data/{}.vis'.format(filename)], stdout=open(os.devnull, 'wb'))
+            'vis={}.vis'.format(obs.root + obs.name), 
+            'model={}.im'.format(filepath),
+            'out={}.vis'.format(filepath)], stdout=open(os.devnull, 'wb'))
             
         #Convert to UVfits
         sp.call(['fits', 'op=uvout', 
-            'in=model_data/{}.vis'.format(filename),
-            'out=model_data/{}.uvf'.format(filename)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            'in={}.vis'.format(filepath),
+            'out={}.uvf'.format(filepath)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
             
     def get_chi(self, obs):
         """
@@ -152,7 +154,7 @@ class Model:
         datrl_stokes = np.array((datrl_xx + datrl_yy) / 2.)
         datim_stokes = np.array((datim_xx + datim_yy) / 2.)
 
-        uvf  = fits.open('model_data/{}.uvf'.format(self.name+obs.name))
+        uvf  = fits.open('{}.uvf'.format(self.name+obs.name))
         modrlimwt = uvf[0].data['data']
         modrl_stokes = modrlimwt[::2, 0, 0, 0, 0, 0]
         modim_stokes = modrlimwt[::2, 0, 0, 0, 0, 1]
@@ -177,28 +179,28 @@ class Model:
             print('                                   clean({})                                   ').format(obs.name)
         print('================================================================================')
         
-        # Set observation-specific clean filename; clear filenames
-        filename = self.root + self.name + '_' + obs.name
+        # Set observation-specific clean filepath; clear filepaths
+        filepath = self.root + self.name + '_' + obs.name
         if residual == True:
-            filename += '.residual'
-        sp.call('rm -rf model_data/{}.{{mp,bm,cl,cm}}'.format(filename), shell=True)
+            filepath += '.residual'
+        sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(filepath), shell=True)
         
         # Clean down to half the observation rms
         sp.call(['invert', 
-            'vis=model_data/{}.vis'.format(filename), 
-            'map=model_data/{}.mp'.format(filename), 
-            'beam=model_data/{}.bm'.format(filename), 
+            'vis={}.vis'.format(filepath), 
+            'map={}.mp'.format(filepath), 
+            'beam={}.bm'.format(filepath), 
             'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'])
         sp.call(['clean', 
-            'map=model_data/{}.mp'.format(filename), 
-            'beam=model_data/{}.bm'.format(filename), 
-            'out=model_data/{}.cl'.format(filename), 
+            'map={}.mp'.format(filepath), 
+            'beam={}.bm'.format(filepath), 
+            'out={}.cl'.format(filepath), 
             'niters=100000', 'cutoff={}'.format(obs.rms/2)])
         sp.call(['restor',
-            'map=model_data/{}.mp'.format(filename),
-            'beam=model_data/{}.bm'.format(filename),
-            'model=model_data/{}.cl'.format(filename),
-            'out=model_data/{}.cm'.format(filename)])
+            'map={}.mp'.format(filepath),
+            'beam={}.bm'.format(filepath),
+            'model={}.cl'.format(filepath),
+            'out={}.cm'.format(filepath)])
         
         # Display clean image with 2,4,6 sigma contours, if desired
         if show == True:
@@ -209,14 +211,14 @@ class Model:
             
             #Get rms for countours
             imstat_out = sp.check_output(['imstat', 
-                'in=model_data/{}.cm'.format(filename), 
+                'in={}.cm'.format(filepath), 
                 "region='boxes(256,0,512,200)'"])
             clean_rms = float(imstat_out[-38:-29])
             print("Clean rms is {}".format(clean_rms))
             
             # Display
             sp.call(['cgdisp', 
-                'in=model_data/{}.cm,model_data/{}.cm'.format(filename, filename), 
+                'in={}.cm,{}.cm'.format(filepath, filepath), 
                 'type=p,c', 'device=/xs', 
                 'slev=a,{}'.format(clean_rms), 'levs1=-6,-4,-2,2,4,6',
                 'region=arcsec,box(-5,-5,5,5)',
@@ -228,14 +230,14 @@ class Model:
         Create model residuals (data - model), and clean//display if desired
         """
         
-        #Set observation-specific filename
-        filename = self.root + self.name + '_' + obs.name
+        #Set observation-specific filepath
+        filepath = self.root + self.name + '_' + obs.name
         
         # Subtract model visibilities from data; outfile is residual visibilities
         sp.call(['uvmodel', 'options=subtract',
-            'model=model_data/{}.im'.format(filename),
-            'vis=unsubtracted_obs_data/{}.vis'.format(obs.name),
-            'out=model_data/{}.residual.vis'.format(filename)])
+            'model={}.im'.format(filepath),
+            'vis={}.vis'.format(obs.root + obs.name),
+            'out={}.residual.vis'.format(filepath)])
     
         if show == True:
             self.clean(obs, residual=True)
@@ -255,10 +257,8 @@ class Model:
         self.make_fits(self.disk_params)
 
 #==============================================================================#
-# Create observations, default parameter dict, and let code know to display
-# test image before any others
+# Create observations, default parameter dict
 #==============================================================================#
-cgdisp_start = [False]
 # mar0 = Observation('aumic_band6_mar_spw0_FINAL', rms=6.5e-05)
 # mar1 = Observation('aumic_band6_mar_spw1_FINAL', rms=6.124e-05)
 # mar2 = Observation('aumic_band6_mar_spw2_FINAL', rms=6.068e-05)
