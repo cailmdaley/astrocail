@@ -61,9 +61,7 @@ class Observation:
             
             # Display an unimportant imaage to get around the fact that the first 
             # image displayed with cgdisp in a session can't be deleted
-            if cgdisp_start[0] == False:
-                sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
-                cgdisp_start[0] == True
+            sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
             
             #Get rms for countours
             imstat_out = sp.check_output(['imstat', 
@@ -99,7 +97,7 @@ class Model:
             isgas=False, # continuum!
             includeDust=True, #continuuum!!
             extra=0.0, # ?
-            modfile = 'model_data/{}'.format(self.name))
+            modfile = '{}'.format(self.root + self.name))
         
     def obs_sample(self, obs, starflux):
         """
@@ -108,10 +106,10 @@ class Model:
         """
         
         # define observation-specific model name and delete any preexisting conditions
-        filename = self.name + obs.name
-        sp.call('rm -rf model_data/{}*'.format(filename), shell=True)
+        filename = self.root + self.name + obs.name
+        sp.call('rm -rf {}*'.format(filename), shell=True)
         
-        self.fits = fits.open('model_data/{}.fits'.format(self.name))
+        self.fits = fits.open('{}.fits'.format(self.name))
         
         # add starflux to central pixel
         crpix = int(self.fits[0].header['CRPIX1'])
@@ -154,11 +152,10 @@ class Model:
         datrl_stokes = np.array((datrl_xx + datrl_yy) / 2.)
         datim_stokes = np.array((datim_xx + datim_yy) / 2.)
 
-        self.uvf  = fits.open('model_data/{}.uvf'.format(self.name+obs.name))
-        modrlimwt = self.uvf[0].data['data']
+        uvf  = fits.open('model_data/{}.uvf'.format(self.name+obs.name))
+        modrlimwt = uvf[0].data['data']
         modrl_stokes = modrlimwt[::2, 0, 0, 0, 0, 0]
         modim_stokes = modrlimwt[::2, 0, 0, 0, 0, 1]
-        self.uvf.close
 
         # Calculate chi^2
         chi = np.sum((datrl_stokes - modrl_stokes)**2 * weights +
@@ -181,7 +178,7 @@ class Model:
         print('================================================================================')
         
         # Set observation-specific clean filename; clear filenames
-        filename = self.name + '_' + obs.name
+        filename = self.root + self.name + '_' + obs.name
         if residual == True:
             filename += '.residual'
         sp.call('rm -rf model_data/{}.{{mp,bm,cl,cm}}'.format(filename), shell=True)
@@ -208,10 +205,7 @@ class Model:
             
             # Display an unimportant image to get around the fact that the first 
             # image displayed with cgdisp in a session can't be deleted
-            global cgdisp_start
-            if cgdisp_start == False:
-                sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
-                cgdisp_start = True
+            sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
             
             #Get rms for countours
             imstat_out = sp.check_output(['imstat', 
@@ -235,7 +229,7 @@ class Model:
         """
         
         #Set observation-specific filename
-        filename = self.name + '_' + obs.name
+        filename = self.root + self.name + '_' + obs.name
         
         # Subtract model visibilities from data; outfile is residual visibilities
         sp.call(['uvmodel', 'options=subtract',
@@ -246,10 +240,11 @@ class Model:
         if show == True:
             self.clean(obs, residual=True)
 
-    def __init__(self, params, observations, name=''):
+    def __init__(self, params, observations, root, name=''):
         
         # assign name and set of observations
-        self.name = name + str(np.random.randint(1e10))
+        self.name = name
+        self.root = root
         self.observations = observations
         
         
