@@ -1,11 +1,7 @@
-import emcee
+from astropy.io import fits
 import numpy as np
 import subprocess as sp
 import os
-import pandas as pd
-from collections import OrderedDict
-from disk_model import debris_disk, raytrace
-from astropy.io import fits
 
 class Observation:
     def __init__(self, root, name, rms):
@@ -23,11 +19,6 @@ class Observation:
         Clean and image (if desired) a observation-specific model.
         Either model image or residuals may be chosen.
         """
-
-        print('')
-        print('================================================================================')
-        print('                            clean({})                                   ').format(self.name)
-        print('================================================================================')
 
         # Set observation-specific clean filepath; clear filepaths
         sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(self.root + self.name), shell=True)
@@ -79,48 +70,33 @@ class Observation:
                 'region=arcsec,box(-5,-5,5,5)',
                 'labtyp=arcsec', 'beamtyp=b,l,3',])
 
-
-
 class Model:
 
-    def obs_sample(self, obs, starflux):
+    def obs_sample(self, obs):
         """
         Create model fits file with correct header information and sample using
         ALMA observation uv coverage to to create model .vis and .uvf files.
         """
 
         # define observation-specific model name and delete any preexisting conditions
-        filepath = self.root + self.name + obs.name
-        sp.call('rm -rf {}*'.format(filepath), shell=True)
-
-        self.fits = fits.open(self.root + self.name + '.fits')
-
-        # add starflux to central pixel
-        crpix = int(self.fits[0].header['CRPIX1'])
-        self.im = self.fits[0].data[0]
-        self.im[crpix, crpix] += starflux
-
-        # align with observation
-        self.fits[0].header['CRVAL1'] = obs.ra
-        self.fits[0].header['CRVAL2'] = obs.dec
-
-        self.fits.writeto(filepath + '.fits')
+        path = self.root + self.name + obs.name
+        sp.call('rm -rf {}{{.im,.vis,.uvf}}'.format(path), shell=True)
 
         # Convert model into MIRIAD .im image file
         sp.call(['fits', 'op=xyin',
-            'in={}.fits'.format(filepath),
-            'out={}.im'.format(filepath)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            'in={}.fits'.format(path),
+            'out={}.im'.format(path)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
 
         # Sample the model image using the observation uv coverage
         sp.call(['uvmodel', 'options=replace',
             'vis={}.vis'.format(obs.root + obs.name),
-            'model={}.im'.format(filepath),
-            'out={}.vis'.format(filepath)], stdout=open(os.devnull, 'wb'))
+            'model={}.im'.format(path),
+            'out={}.vis'.format(path)], stdout=open(os.devnull, 'wb'))
 
         #Convert to UVfits
         sp.call(['fits', 'op=uvout',
-            'in={}.vis'.format(filepath),
-            'out={}.uvf'.format(filepath)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            'in={}.vis'.format(path),
+            'out={}.uvf'.format(path)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
 
     def get_chi(self, obs):
         """
@@ -152,14 +128,6 @@ class Model:
         Clean and image (if desired) a observation-specific model.
         Either model image or residuals may be chosen.
         """
-
-        print('')
-        print('================================================================================')
-        if residual:
-            print('                              clean({}.residual)                               ').format(obs.name)
-        else:
-            print('                                   clean({})                                   ').format(obs.name)
-        print('================================================================================')
 
         # Set observation-specific clean filepath; clear filepaths
         filepath = self.root + self.name + '_' + obs.name
@@ -224,59 +192,10 @@ class Model:
         if show == True:
             self.clean(obs, residual=True)
 
-    def __init__(self, params, observations, root, name=''):
+    def __init__(self, observations, root, name=''):
 
         # assign name and set of observations
-        self.name = name
+        self.name = 'model' + name
         self.root = root
         self.observations = observations
-
-
-        #split parameters into disk params and star params
-        self.disk_params = params[:-len(observations)]
-        self.starfluxes  = params[-len(observations):]
-
-        self.make_fits(self.disk_params)
-
-#==============================================================================#
-# Create observations, default parameter dict
-#==============================================================================#
-# mar0 = Observation('aumic_band6_mar_spw0_FINAL', rms=6.5e-05)
-# mar1 = Observation('aumic_band6_mar_spw1_FINAL', rms=6.124e-05)
-# mar2 = Observation('aumic_band6_mar_spw2_FINAL', rms=6.068e-05)
-# mar3 = Observation('aumic_band6_mar_spw3_FINAL', rms=6.468e-05)
-# aug0 = Observation('aumic_band6_aug_spw0_FINAL', rms=5.879e-05)
-# aug1 = Observation('aumic_band6_aug_spw1_FINAL', rms=5.336e-05)
-# aug2 = Observation('aumic_band6_aug_spw2_FINAL', rms=6.092e-05)
-# aug3 = Observation('aumic_band6_aug_spw3_FINAL', rms=5.558e-05)
-# jun0 = Observation('aumic_band6_jun_spw0_FINAL', rms=5.369e-05)
-# jun1 = Observation('aumic_band6_jun_spw1_FINAL', rms=4.658e-05)
-# jun2 = Observation('aumic_band6_jun_spw2_FINAL', rms=5.083e-05)
-# jun3 = Observation('aumic_band6_jun_spw3_FINAL', rms=5.559e-05)
-# band6_observations=[[mar0, mar1, mar2, mar3],
-#                     [aug0, aug1, aug2, aug3],
-#                     [jun0, jun1, jun2, jun3]]
-#
-# params = OrderedDict([
-#     ('temp_index',        -0.5),
-#     ('m_disk',            3.67e-08),
-#     ('sb_law',            2.3),
-#     ('r_in',              8.8),
-#     ('d_r',                31.5),
-#     ('r_crit',            150.0),
-#     ('inc',               89.5),
-#     ('m_star',            0.31),
-#     ('co_frac',           0.0001),
-#     ('v_turb',            0.081),
-#     ('Zq',                70.0),
-#     ('column_densities', [0.79, 1000]),
-#     ('abundance_bounds', [50, 500]),
-#     ('hand',              -1),
-#     ('rgrid_size',        500),
-#     ('zgrid_size',        500),
-#     ('l_star',            0.09),
-#     ('scale_factor',      0.1),
-#     ('pa',                128.41),
-#     ('mar_starflux',      3.67e-4),
-#     ('aug_starflux',      1.23e-4),
-#     ('jun_starflux',      2.62e-4)])
+        self.chis = []
