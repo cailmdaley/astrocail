@@ -4,16 +4,16 @@ import subprocess as sp
 import os
 
 class Observation:
-    def __init__(self, root, name, rms):
-        self.name = name
+    def __init__(self, root, name,  rms):
         self.root = root
-        self.uvf  = fits.open(self.root + self.name + '.uvf')
-
+        self.name = name
+        self.path = root + name
+        
         self.rms = rms
-
+        self.uvf  = fits.open(self.path + '.uvf')
         self.dec = self.uvf[3].data['DECEPO'][0]
         self.ra = self.uvf[3].data['RAEPO'][0]
-
+        
     def clean(self, show=True):
         """
         Clean and image (if desired) a observation-specific model.
@@ -21,16 +21,16 @@ class Observation:
         """
 
         # Set observation-specific clean filepath; clear filepaths
-        sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(self.root + self.name), shell=True)
+        sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(self.path), shell=True)
 
         #Dirty clean; save rms for clean cutoff
         sp.call(['invert',
-            'vis={}.vis'.format(self.root + self.name),
-            'map={}.mp'.format(self.root + self.name),
-            'beam={}.bm'.format(self.root + self.name),
+            'vis={}.vis'.format(self.path),
+            'map={}.mp'.format(self.path),
+            'beam={}.bm'.format(self.path),
             'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'])
         imstat_out=sp.check_output(['imstat',
-            'in={}.mp'.format(self.root + self.name),
+            'in={}.mp'.format(self.path),
             "region='boxes(256,0,512,200)'"])
         dirty_rms = float(imstat_out[-38:-29])
         print("Dirty rms is {}".format(dirty_rms))
@@ -38,15 +38,15 @@ class Observation:
 
         # Clean down to half the rms
         sp.call(['clean',
-            'map={}.mp'.format(self.root + self.name),
-            'beam={}.bm'.format(self.root + self.name),
-            'out={}.cl'.format(self.root + self.name),
+            'map={}.mp'.format(self.path),
+            'beam={}.bm'.format(self.path),
+            'out={}.cl'.format(self.path),
             'niters=100000', 'cutoff={}'.format(dirty_rms/2)])
         sp.call(['restor',
-            'map={}.mp'.format(self.root + self.name),
-            'beam={}.bm'.format(self.root + self.name),
-            'model={}.cl'.format(self.root + self.name),
-            'out={}.cm'.format(self.root + self.name)])
+            'map={}.mp'.format(self.path),
+            'beam={}.bm'.format(self.path),
+            'model={}.cl'.format(self.path),
+            'out={}.cm'.format(self.path)])
 
         # Display clean image with 2,4,6 sigma contours, if desired
         if show == True:
@@ -57,14 +57,14 @@ class Observation:
 
             #Get rms for countours
             imstat_out = sp.check_output(['imstat',
-                'in={}.cm'.format(self.root + self.name),
+                'in={}.cm'.format(self.path),
                 "region='boxes(256,0,512,200)'"])
             clean_rms = float(imstat_out[-38:-29])
             print("Clean rms is {}".format(clean_rms))
 
             # Display
             sp.call(['cgdisp',
-                'in={}.cm,{}.cm'.format(self.root + self.name, self.root + self.name),
+                'in={}.cm,{}.cm'.format(self.path, self.path),
                 'type=p,c', 'device=/xs',
                 'slev=a,{}'.format(clean_rms), 'levs1=-6,-4,-2,2,4,6',
                 'region=arcsec,box(-5,-5,5,5)',
@@ -72,6 +72,17 @@ class Observation:
 
 class Model:
 
+    def __init__(self, observations, root, name=''):
+        self.observations = observations
+        self.name = name
+        self.root = root
+        self.path = root + name
+        self.chis = []
+        
+    def delete(self):
+        sp.call('rm -rf {}*'.format(self.path), shell=True)
+
+        
     def obs_sample(self, obs):
         """
         Create model fits file with correct header information and sample using
@@ -79,24 +90,23 @@ class Model:
         """
 
         # define observation-specific model name and delete any preexisting conditions
-        path = self.root + self.name + obs.name
-        sp.call('rm -rf {}{{.im,.vis,.uvf}}'.format(path), shell=True)
+        sp.call('rm -rf {}{{.im,.vis,.uvf}}'.format(self.path), shell=True)
 
         # Convert model into MIRIAD .im image file
         sp.call(['fits', 'op=xyin',
-            'in={}.fits'.format(path),
-            'out={}.im'.format(path)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            'in={}.fits'.format(self.path),
+            'out={}.im'.format(self.path)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
 
         # Sample the model image using the observation uv coverage
         sp.call(['uvmodel', 'options=replace',
-            'vis={}.vis'.format(obs.root + obs.name),
-            'model={}.im'.format(path),
-            'out={}.vis'.format(path)], stdout=open(os.devnull, 'wb'))
+            'vis={}.vis'.format(obs.path),
+            'model={}.im'.format(self.path),
+            'out={}.vis'.format(self.path)], stdout=open(os.devnull, 'wb'))
 
         #Convert to UVfits
         sp.call(['fits', 'op=uvout',
-            'in={}.vis'.format(path),
-            'out={}.uvf'.format(path)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
+            'in={}.vis'.format(self.path),
+            'out={}.uvf'.format(self.path)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
 
     def get_chi(self, obs):
         """
@@ -112,7 +122,7 @@ class Model:
         datrl_stokes = np.array((datrl_xx + datrl_yy) / 2.)
         datim_stokes = np.array((datim_xx + datim_yy) / 2.)
 
-        uvf  = fits.open(self.root + self.name + obs.name +'.uvf')
+        uvf  = fits.open(self.path + '.uvf')
         modrlimwt = uvf[0].data['data']
         modrl_stokes = modrlimwt[::2, 0, 0, 0, 0, 0]
         modim_stokes = modrlimwt[::2, 0, 0, 0, 0, 1]
@@ -130,7 +140,7 @@ class Model:
         """
 
         # Set observation-specific clean filepath; clear filepaths
-        filepath = self.root + self.name + '_' + obs.name
+        filepath = self.pathself.root + self.name + obs.shortname
         if residual == True:
             filepath += '.residual'
         sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(filepath), shell=True)
@@ -181,21 +191,13 @@ class Model:
         """
 
         #Set observation-specific filepath
-        filepath = self.root + self.name + '_' + obs.name
+        filepath = self.root + self.name + obs.shortname
 
         # Subtract model visibilities from data; outfile is residual visibilities
         sp.call(['uvmodel', 'options=subtract',
             'model={}.im'.format(filepath),
-            'vis={}.vis'.format(obs.root + obs.name),
+            'vis={}.vis'.format(obs.path),
             'out={}.residual.vis'.format(filepath)])
 
         if show == True:
             self.clean(obs, residual=True)
-
-    def __init__(self, observations, root, name=''):
-
-        # assign name and set of observations
-        self.name = 'model' + name
-        self.root = root
-        self.observations = observations
-        self.chis = []
