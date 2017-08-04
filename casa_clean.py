@@ -82,7 +82,7 @@ if __name__ == "__main__":
     vis_list = args.vis.split(',')
     if args.concat:
         concatenate(vis_list, args.concat)
-        clean(args.conat, args.rms, args.mask)
+        clean(args.concat, args.rms, args.mask)
     else:
         for vis in vis_list: clean(vis, rms, mask)
     
