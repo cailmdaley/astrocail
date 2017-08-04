@@ -56,7 +56,7 @@ def clean(path, rms, mask):
                
     return clean_rms
 
-def concat(infiles, outfile):
+def concatenate(infiles, outfile):
     
     print('Concatenating measurement sets')
     print(np.array(infiles))
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     
     vis_list = args.vis.split(',')
     if args.concat:
-        concat(vis_list, args.concat)
+        concatenate(vis_list, args.concat)
         clean(args.conat, args.rms, args.mask)
     else:
         for vis in vis_list: clean(vis, rms, mask)
