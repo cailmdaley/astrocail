@@ -119,13 +119,18 @@ class Model:
         """
         Create model residuals (data - model), and clean//display if desired
         """
-        sp.call('rm -rf *.residual.vis'.format(self.path + suffix), shell=True)
+        sp.call('rm -rf *.residuals.vis'.format(self.path + suffix), shell=True)
 
         # Subtract model visibilities from data; outfile is residual visibilities
         sp.call(['uvmodel', 'options=subtract',
             'vis={}.vis'.format(obs.path),
             'model={}.im'.format(self.path + suffix),
             'out={}.residuals.vis'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'))
+        
+        #Convert to UVfits
+        sp.call(['fits', 'op=uvout',
+            'in={}residuals.vis'.format(self.path + suffix),
+            'out={}residuals.uvf'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
 
         if show == True:
             self.clean(obs, residual=True)
