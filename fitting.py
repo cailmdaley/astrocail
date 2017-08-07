@@ -127,11 +127,6 @@ class Model:
             'model={}.im'.format(self.path + suffix),
             'out={}.residuals.vis'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'))
         
-        #Convert to UVfits
-        sp.call(['fits', 'op=uvout',
-            'in={}residuals.vis'.format(self.path + suffix),
-            'out={}residuals.uvf'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-
         if show == True:
             self.clean(obs, residual=True)
 

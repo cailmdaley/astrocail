@@ -100,14 +100,26 @@ def to_fits(path):
     pipe("exportfits(",
         "imagename='{}.image',".format(path),
         "fitsimage='{}.fits')".format(path))
+        
+def vis_to_ms(paths):
+    if type(paths) is str: paths = [paths]
+    for path in paths: 
+        sp.call('rm -rf {}.uvf'.format(path), shell=True)
+        sp.call(['fits', 'op=uvout',
+            'in={}.vis'.format(self.path),
+            'out={}.uvf'.format(self.path)], stdout=open(os.devnull, 'wb'))
+            
+    uvf_to_ms(paths)
                
-def to_ms(paths):
+def uvf_to_ms(paths):
     if type(paths) is str: paths = [paths]
     for path in paths: sp.call('rm -rf {}.ms'.format(path), shell=True)
     
     pipe(
     "for path in {}:".format(paths),
     ("    importuvfits(fitsfile = path+'.uvf', vis = path+'.ms')"))
+    
+
 
 
         
