@@ -1,5 +1,6 @@
 import subprocess as sp
 import numpy as np
+import os
 
 def pipe(*commands):
     call_string = '\n\n'.join([command if type(command) is str else ''.join(command) for command in commands])
@@ -106,8 +107,8 @@ def vis_to_ms(paths):
     for path in paths: 
         sp.call('rm -rf {}.uvf'.format(path), shell=True)
         sp.call(['fits', 'op=uvout',
-            'in={}.vis'.format(self.path),
-            'out={}.uvf'.format(self.path)], stdout=open(os.devnull, 'wb'))
+            'in={}.vis'.format(path),
+            'out={}.uvf'.format(path)], stdout=open(os.devnull, 'wb'))
             
     uvf_to_ms(paths)
                
