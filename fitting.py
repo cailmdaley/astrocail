@@ -127,11 +127,6 @@ class Model:
             'model={}.im'.format(self.path + suffix),
             'out={}.residuals.vis'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'))
         
-        #Convert to UVfits
-        sp.call(['fits', 'op=uvout',
-            'in={}residuals.vis'.format(self.path + suffix),
-            'out={}residuals.uvf'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-
         if show == True:
             self.clean(obs, residual=True)
 
@@ -160,35 +155,37 @@ class Model:
 
         self.chis.append(chi)
 
-    def clean(self, obs, residual=False, show=True):
+    def clean(self, path, rms, show=True):
         """
-        Clean and image (if desired) a observation-specific model.
-        Either model image or residuals may be chosen.
+        Clean and image (if desired) a miriad .vis
         """
 
         # Set observation-specific clean filepath; clear filepaths
-        filepath = self.pathself.root + self.name + obs.shortname
-        if residual == True:
-            filepath += '.residual'
-        sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(filepath), shell=True)
+        sp.call('rm -rf {}.{{mp,bm,cl,cm}}'.format(path), shell=True)
 
         # Clean down to half the observation rms
         sp.call(['invert',
-            'vis={}.vis'.format(filepath),
-            'map={}.mp'.format(filepath),
-            'beam={}.bm'.format(filepath),
+            'vis={}.vis'.format(path),
+            'map={}.mp'.format(path),
+            'beam={}.bm'.format(path),
             'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'])
         sp.call(['clean',
-            'map={}.mp'.format(filepath),
-            'beam={}.bm'.format(filepath),
-            'out={}.cl'.format(filepath),
-            'niters=100000', 'cutoff={}'.format(obs.rms/2)])
+            'map={}.mp'.format(path),
+            'beam={}.bm'.format(path),
+            'out={}.cl'.format(path),
+            'region=arcsec,box(-5,-5,5,5)',
+            'niters=1500', 'cutoff={}'.format(rms)])
         sp.call(['restor',
-            'map={}.mp'.format(filepath),
-            'beam={}.bm'.format(filepath),
-            'model={}.cl'.format(filepath),
-            'out={}.cm'.format(filepath)])
-
+            'map={}.mp'.format(path),
+            'beam={}.bm'.format(path),
+            'model={}.cl'.format(path),
+            'out={}.cm'.format(path)])
+            
+        # Convert MIRIAD .im image file into fits
+        sp.call(['fits', 'op=xyout',
+            'in={}.im'.format(path),
+            'out={}.fits'.format(path)], stdout=open(os.devnull, 'wb'))
+            
         # Display clean image with 2,4,6 sigma contours, if desired
         if show == True:
 
@@ -196,20 +193,15 @@ class Model:
             # image displayed with cgdisp in a session can't be deleted
             sp.call(['cgdisp', 'in=cgdisp_start.im', 'type=p', 'device=/xs'])
 
-            #Get rms for countours
-            imstat_out = sp.check_output(['imstat',
-                'in={}.cm'.format(filepath),
-                "region='boxes(256,0,512,200)'"])
-            clean_rms = float(imstat_out[-38:-29])
-            print("Clean rms is {}".format(clean_rms))
-
             # Display
             sp.call(['cgdisp',
-                'in={}.cm,{}.cm'.format(filepath, filepath),
+                'in={}.cm,{}.cm'.format(path, path),
                 'type=p,c', 'device=/xs',
-                'slev=a,{}'.format(clean_rms), 'levs1=-6,-4,-2,2,4,6',
+                'slev=a,{}'.format(rms), 'levs1=-6,-4,-2,2,4,6',
                 'region=arcsec,box(-5,-5,5,5)',
                 'labtyp=arcsec', 'beamtyp=b,l,3',])
+            raw_input('press enter when ready to go on:')
+
 
 
 class MCMCrun:
