@@ -1,6 +1,7 @@
 from astropy.io import fits
 import numpy as np
 import pandas as pd
+import seaborn as sns
 import subprocess as sp
 import os
 from emcee.utils import MPIPool
@@ -201,6 +202,11 @@ class Model:
                 'region=arcsec,box(-5,-5,5,5)',
                 'labtyp=arcsec', 'beamtyp=b,l,3',])
             raw_input('press enter when ready to go on:')
+            
+    def view_fits(self):
+        model_image = fits.getdata(self.path + '.fits')[0]
+        plt.imshow(model_image, origin='lower')
+        plt.show(block=False)
 
 
 

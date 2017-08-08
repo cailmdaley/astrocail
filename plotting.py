@@ -210,8 +210,12 @@ class FitsImage:
                     
         except AttributeError:
             pass
+            
+    def quickview(self):
+            plt.imshow(self.im, origin='lower')
+            plt.show(block=False)
 
-    def __init__(self, filename, rms, fig=None, pos=(0,1), cbspace=(100.,20.), **kwds):
+    def __init__(self, filename, rms=0, fig=None, pos=(0,1), cbspace=(100.,20.), **kwds):
         
         self.file = filename
         self.rms = rms
@@ -221,8 +225,8 @@ class FitsImage:
         self.__dict__.update(kwds)
         
         self.get_fits()
-        self.make_axis() 
-        self.fill_axis()
+        # self.make_axis() 
+        # self.fill_axis()
         
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # num = 2
