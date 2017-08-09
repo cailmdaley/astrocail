@@ -1,9 +1,8 @@
 import subprocess as sp
 import numpy as np
-import os
 
 def pipe(*commands):
-    call_string = '\n\n'.join([command if type(command) is str else ''.join(command) for command in commands])
+    call_string = '\n'.join([command if type(command) is str else '\n'.join(command) for command in commands])
     print('Piping the following commands to CASA:\n')
     print(call_string)
     sp.call(['casa', '--nologfile', '-c', call_string])
@@ -97,30 +96,18 @@ def model_clean(path, rms, mask):
     sp.call("rm -rf {}.*".format(dirty_path), shell=True)
 
 def to_fits(path):
-    sp.call('rm -rf {}.fits'.format(path))
+    sp.call('rm -rf {}.fits'.format(path), shell=True)
     pipe("exportfits(",
-        "imagename='{}.image',".format(path),
+        "imagename='{}.clean.image',".format(path),
         "fitsimage='{}.fits')".format(path))
-        
-def vis_to_ms(paths):
-    if type(paths) is str: paths = [paths]
-    for path in paths: 
-        sp.call('rm -rf {}.uvf'.format(path), shell=True)
-        sp.call(['fits', 'op=uvout',
-            'in={}.vis'.format(path),
-            'out={}.uvf'.format(path)], stdout=open(os.devnull, 'wb'))
-            
-    uvf_to_ms(paths)
                
-def uvf_to_ms(paths):
+def to_ms(paths):
     if type(paths) is str: paths = [paths]
     for path in paths: sp.call('rm -rf {}.ms'.format(path), shell=True)
     
     pipe(
     "for path in {}:".format(paths),
     ("    importuvfits(fitsfile = path+'.uvf', vis = path+'.ms')"))
-    
-
 
 
         
