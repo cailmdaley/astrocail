@@ -169,13 +169,13 @@ class Model:
             'vis={}.vis'.format(path),
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
-            'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'])
+            'sup=0', 'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs'])
         sp.call(['clean',
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
             'out={}.cl'.format(path),
-            'region=arcsec,box(-5,-5,5,5)',
-            'niters=1500', 'cutoff={}'.format(rms)])
+            'cutoff={}'.format(rms),
+            'region=arcsec,box(-5,-5,5,5)', 'niters=10000'])
         sp.call(['restor',
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
