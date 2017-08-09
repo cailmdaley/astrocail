@@ -1,12 +1,9 @@
 from astropy.io import fits
 import numpy as np
-import pandas as pd
 import seaborn as sns
+import matplotlib.pyplot as plt
 import subprocess as sp
 import os
-from emcee.utils import MPIPool
-import matplotlib.pyplot as plt
-import emcee
 
 class Observation:
     def __init__(self, root, name,  rms):
@@ -84,7 +81,7 @@ class Model:
         self.path = root + name
         self.chis = []
         
-        self.delete() # delete any preexisting files that will conflict
+        # self.delete() # delete any preexisting files that will conflict
         
     def delete(self):
         sp.call('rm -rf {}*'.format(self.path), shell=True)
@@ -174,7 +171,7 @@ class Model:
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
             'out={}.cl'.format(path),
-            # 'region=arcsec,box(-5,-5,5,5)',
+            'region=arcsec,box(-5,-5,5,5)',
             'niters=10000', 'cutoff={}'.format(rms/2.)])
         sp.call(['restor',
             'map={}.mp'.format(path),
@@ -207,87 +204,3 @@ class Model:
         model_image = fits.getdata(self.path + '.fits')[0]
         plt.imshow(model_image, origin='lower')
         plt.show(block=False)
-
-
-
-class MCMCrun:
-    def __init__(self, name, nwalkers, burn_in=0):
-        self.name = name 
-        self.nwalkers = nwalkers
-        self.burn_in = burn_in
-        
-        # read in chain from .csv
-        self.chain = pd.read_csv(name + '/chain.csv')
-    
-        # indentify bad walkers and make clean chain
-        last_step = self.chain.iloc[-nwalkers:]
-        self.last_step = self.chain.iloc[-nwalkers:]
-        self.bad_walkers = last_step[last_step['lnprob'] == -np.inf].index % self.nwalkers
-        self.clean_chain = self.chain.drop([row for row in self.chain.index 
-            if row%self.nwalkers in self.bad_walkers])
-        if len(self.bad_walkers !=0):
-            print('walkers {} have not converged'.format(tuple(self.bad_walkers)))
-        
-        
-    def evolution(self, show=False):
-        plt.close()
-        steps=self.chain.index // self.nwalkers
-
-        color = 'red' if 0 in self.bad_walkers else 'black'
-        axes = self.chain.iloc[0::self.nwalkers].plot(x=np.arange(steps[-1]+1),
-            figsize=(7, 2.2*(len(self.chain.columns))), subplots=True, color=color, alpha=0.5)
-            
-        for i in range(self.nwalkers-1):
-            color = 'red' if i+1 in self.bad_walkers else 'black'
-            self.chain.iloc[i+1::self.nwalkers].plot(x=np.arange(steps[-1]+1),
-                subplots=True, ax=axes, legend=False, color=color, alpha=0.5)
-
-        # remove bad walkers before taking mean
-        stepped_chain = self.clean_chain.set_index(steps)
-
-        walker_means = pd.DataFrame([stepped_chain.loc[i].mean() for i in range(stepped_chain.index[-1])])
-        walker_means.plot(subplots=True, ax=axes, legend=False, color='forestgreen', ls='--')
-
-        plt.suptitle(self.name + ' walker evolution')
-        plt.savefig('{}/evolution.png'.format(self.name), dpi=700)
-        if show:
-            plt.show()
-
-def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
-    pool = MPIPool()
-    if not pool.is_master():
-        pool.wait()
-        sys.exit(0)
-        
-    # initiate sampler chain
-    ndim = len(to_vary)
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(run_name, to_vary), pool=pool)
-
-    try:
-        chain = pd.read_csv(run_name + '/chain.csv')
-        start_step = chain.index[-1] // nwalkers
-        print('Resuming {} at step {}'.format(run_name, start_step))
-        pos = np.array(chain.iloc[-nwalkers:, :-1])
-        with open(run_name + '/chain.csv', 'a') as f:
-            f.write('\n')
-    except IOError:
-        
-        sp.call(['mkdir', run_name])
-        sp.call(['mkdir', run_name + '/model_files'])
-        
-        print('Starting {}'.format(run_name))
-        start_step = 0
-        
-        with open(run_name + '/chain.csv', 'w') as f:
-            np.savetxt(f, (np.append([param[0] for param in to_vary], 'lnprob\n'),), 
-                delimiter=',', fmt='%s')
-        pos = [[param[1] + param[2]*np.random.randn() for param in to_vary] 
-            for i in range(nwalkers)] 
-            
-    for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
-        print("Step {}".format(start_step + i))
-        pos, chisum, blob = result
-        with open(run_name + '/chain.csv', 'a') as f: 
-            np.savetxt(f, [np.append(pos[i], chisum[i]) for i in range(nwalkers)], delimiter=',')
-
-    pool.close()
