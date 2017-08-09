@@ -174,8 +174,8 @@ class Model:
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
             'out={}.cl'.format(path),
-            'region=arcsec,box(-5,-5,5,5)',
-            'niters=1500', 'cutoff={}'.format(rms)])
+            # 'region=arcsec,box(-5,-5,5,5)',
+            'niters=10000', 'cutoff={}'.format(rms/2.)])
         sp.call(['restor',
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
@@ -184,7 +184,7 @@ class Model:
             
         # Convert MIRIAD .im image file into fits
         sp.call(['fits', 'op=xyout',
-            'in={}.im'.format(path),
+            'in={}.cm'.format(path),
             'out={}.fits'.format(path)], stdout=open(os.devnull, 'wb'))
             
         # Display clean image with 2,4,6 sigma contours, if desired
@@ -201,7 +201,7 @@ class Model:
                 'slev=a,{}'.format(rms), 'levs1=-6,-4,-2,2,4,6',
                 'region=arcsec,box(-5,-5,5,5)',
                 'labtyp=arcsec', 'beamtyp=b,l,3',])
-            raw_input('press enter when ready to go on:')
+            raw_input('\npress enter when ready to go on:')
             
     def view_fits(self):
         model_image = fits.getdata(self.path + '.fits')[0]
