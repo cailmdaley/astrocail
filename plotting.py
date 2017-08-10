@@ -85,7 +85,7 @@ class Figure:
                       self.dec_offset[-1], self.dec_offset[0]]
 
 
-    def fill_axis(self, ax, cbspace):
+    def fill_axis(self, ax, text):
         # Plot image as a colour map
         cmap = ax.imshow(self.im,
             extent=self.extent,
@@ -132,7 +132,15 @@ class Figure:
         cbar.ax.xaxis.set_tick_params(direction='out', length=2, which='minor',
             bottom='off', top='on')
         
-        tickmaj, tickmin = cbspace
+        if np.max(self.im) > 500:
+            tickmaj = 200; tickmin = 50
+        elif np.max(self.im) > 200:
+            tickmaj = 100; tickmin = 25
+        elif np.max(self.im) > 100:
+            tickmaj = 50; tickmin = 10
+        elif np.max(self.im) <= 100:
+            tickmaj = 20; tickmin = 5
+            
         minorLocator = AutoMinorLocator(tickmaj / tickmin)
         cbar.ax.xaxis.set_minor_locator(minorLocator)
         cbar.ax.set_xticklabels(cbar.ax.get_xticklabels(),
@@ -140,9 +148,9 @@ class Figure:
         cbar.set_ticks(np.arange(-10*tickmaj, 10*tickmaj, tickmaj))
 
         # Colorbar label
-        cbar.ax.text(0.425, 0.320, r'$\muJy / beam$', fontsize=12,
+        cbar.ax.text(0.425, 0.320, r'$\mu Jy / beam$', fontsize=12,
                      path_effects=[PathEffects.withStroke(linewidth=2, foreground="w")])
-
+        
         # Overplot the beam ellipse
         try:
             beam_ellipse_color = 'k'
@@ -171,24 +179,23 @@ class Figure:
         # Plot a cross at the source position
         # ax.plot([0.0], [0.0], '*', markersize=6, markeredgewidth=1, color='k')
 
-        # # Add figure text
-        # try:
-        #     for t in self.text:
-        #         ax.text(*t, fontsize=18,
-        #             path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")])
-        #             
-        # except AttributeError:
-        #     pass
-            
+        # Add figure text
+        if text:
+            for t in text:
+                ax.text(*t, fontsize=18,
+                    path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")])
+                    
+        plt.suptitle(self.title)
+                    
     def quickview(self):
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
 
-    def __init__(self, paths, rmses=None, cbspaces=(100.,20.)):
+    def __init__(self, paths, rmses, texts, save='figure', title=None):
         
         self.paths = [paths] if type(paths) is not list else paths
         rmses = [rmses] if type(rmses) is not list else rmses
-        # cbspaces = [cbspaces] if type(cbspaces) is not list else cbspaces
+        self.title = title
         
         try:
             self.height, self.width = np.shape(self.paths)
@@ -200,12 +207,12 @@ class Figure:
             sharex=False, sharey=False)
         plt.subplots_adjust(wspace=-0.0)
         
-        for row in zip(self.axes, self.paths, rmses):
-            for ax, path, rms in zip(*row):
+        for row in zip(self.axes, self.paths, rmses, texts):
+            for ax, path, rms, text in zip(*row):
                 self.rms = rms
                 self.get_fits(path)
                 self.make_axis(ax)
-                self.fill_axis(ax, cbspaces)
+                self.fill_axis(ax, text)
         plt.savefig('run7/figure.pdf', dpi=700)
             
             
