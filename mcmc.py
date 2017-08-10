@@ -13,7 +13,7 @@ class MCMCrun:
         self.burn_in = burn_in
         
         # read in chain from .csv
-        self.chain = pd.read_csv(name + '/chain.csv')
+        self.chain = pd.read_csv(name + '/' + name + '_chain.csv')
     
         # indentify bad walkers and make clean chain
         last_step = self.chain.iloc[-nwalkers:]
