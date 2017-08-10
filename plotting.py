@@ -190,6 +190,7 @@ class Figure:
     def quickview(self):
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
+            
 
     def __init__(self, paths, rmses, texts, save='figure', title=None):
         
