@@ -185,14 +185,15 @@ class Figure:
                 ax.text(*t, fontsize=18,
                     path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")])
                     
-        plt.suptitle(self.title)
+        if self.title:
+            plt.suptitle(self.title)
                     
     def quickview(self):
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
             
 
-    def __init__(self, paths, rmses, texts, save='figure', title=None):
+    def __init__(self, paths, rmses, texts, savefile='figure.pdf', title=None, show=False):
         
         self.paths = [paths] if type(paths) is not list else paths
         rmses = [rmses] if type(rmses) is not list else rmses
@@ -214,7 +215,10 @@ class Figure:
                 self.get_fits(path)
                 self.make_axis(ax)
                 self.fill_axis(ax, text)
-        plt.savefig('run7/figure.pdf', dpi=700)
+        if savefile:
+            plt.savefig(savefile, dpi=700)
+        if show:
+            plt.show()
             
             
             
