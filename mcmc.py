@@ -22,10 +22,11 @@ class MCMCrun:
         self.clean_chain = self.chain.drop([row for row in self.chain.index 
             if row%self.nwalkers in self.bad_walkers])
         if len(self.bad_walkers !=0):
-            print('walkers {} have not converged'.format(tuple(self.bad_walkers)))
+            print('walkers {} have not converged.'.format(tuple(self.bad_walkers)))
         
         
     def evolution(self, show=False):
+        print('Generating walker evolution plot...')
         plt.close()
         steps=self.chain.index // self.nwalkers
 
@@ -45,10 +46,15 @@ class MCMCrun:
         walker_means.plot(subplots=True, ax=axes, legend=False, color='forestgreen', ls='--')
 
         plt.suptitle(self.name + ' walker evolution')
-        plt.savefig('{}/evolution.png'.format(self.name), dpi=700)
+        plt.savefig(self.name + '/' self.name + '_evolution.png'.format(self.name), dpi=700)
         if show:
             plt.show()
 
+    def kde(self):
+        print('Generating posterior kde plots...')
+        self.chain.dropna().plot(kind='kde', subplots=True)
+        plt.savefig()
+        plt.show()
 # def corner_plot(run_name, nwalkers, stat_specs, burn_in=0, bad_walkers=[]):
 #     """ Plot 'corner plot' of fit"""
 #     plt.close()
