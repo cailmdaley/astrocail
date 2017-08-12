@@ -16,37 +16,47 @@ class MCMCrun:
         self.chain = pd.read_csv(name + '/' + name + '_chain.csv')
     
         # indentify bad walkers and make clean chain
-        last_step = self.chain.iloc[-nwalkers:]
-        self.last_step = self.chain.iloc[-nwalkers:]
-        self.bad_walkers = last_step[last_step['lnprob'] == -np.inf].index % self.nwalkers
+        print('Identifying bad walkers...')
+        last_steps = self.chain.iloc[-nwalkers*1000:]
+        last_steps.index %= nwalkers
+        self.bad_walkers = []
+        for i in range(nwalkers):
+            if last_steps.loc[i].duplicated(keep=False).sum() == len(last_steps) / nwalkers:
+                self.bad_walkers.append(i)
+                
         self.clean_chain = self.chain.drop([row for row in self.chain.index 
-            if row%self.nwalkers in self.bad_walkers])
-        if len(self.bad_walkers !=0):
-            print('walkers {} have not converged.'.format(tuple(self.bad_walkers)))
+            if row%nwalkers in self.bad_walkers])
+            
+        if len(self.bad_walkers) !=0:
+            print('Walkers {} have not converged.'.format(tuple(self.bad_walkers)))
         
         
     def evolution(self, show=False):
-        print('Generating walker evolution plot...')
+        print('Making walker evolution plot...')
         plt.close()
-        steps=self.chain.index // self.nwalkers
 
+        print(self.chain.shape)
+        print(self.chain.shape[0]/float(self.nwalkers))
         color = 'red' if 0 in self.bad_walkers else 'black'
-        axes = self.chain.iloc[0::self.nwalkers].plot(x=np.arange(steps[-1]+1),
+        axes = self.chain.iloc[0::self.nwalkers].plot(x=np.arange(self.chain.shape[0]+1),
             figsize=(7, 2.2*(len(self.chain.columns))), subplots=True, color=color, alpha=0.5)
+        print(len(self.chain.iloc[0::self.nwalkers]))
             
         for i in range(self.nwalkers-1):
+            print(len(self.chain.iloc[i+1::self.nwalkers]))
             color = 'red' if i+1 in self.bad_walkers else 'black'
-            self.chain.iloc[i+1::self.nwalkers].plot(x=np.arange(steps[-1]+1),
+            self.chain.iloc[i+1::self.nwalkers].plot(x=np.arange(x=np.arange(self.chain.shape[0]+1)),
                 subplots=True, ax=axes, legend=False, color=color, alpha=0.5)
 
         # remove bad walkers before taking mean
-        stepped_chain = self.clean_chain.set_index(steps)
+        mean_chain = self.chain.copy()
+        mean_chain.index //= self.nwalkers-len(self.bad_walkers)
 
-        walker_means = pd.DataFrame([stepped_chain.loc[i].mean() for i in range(stepped_chain.index[-1])])
+        walker_means = pd.DataFrame([mean_chain.loc[i].mean() for i in range(mean_chain.index[-1])])
         walker_means.plot(subplots=True, ax=axes, legend=False, color='forestgreen', ls='--')
 
         plt.suptitle(self.name + ' walker evolution')
-        plt.savefig(self.name + '/' self.name + '_evolution.png'.format(self.name), dpi=700)
+        plt.savefig(self.name + '/' + self.name + '_evolution.pdf'.format(self.name), dpi=700)
         if show:
             plt.show()
 
@@ -119,11 +129,11 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
     sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(run_name, to_vary), pool=pool)
 
     try:
-        chain = pd.read_csv(run_name + '/chain.csv')
+        chain = pd.read_csv(run_name + '/' + run_name + '_chain.csv')
         start_step = chain.index[-1] // nwalkers
         print('Resuming {} at step {}'.format(run_name, start_step))
         pos = np.array(chain.iloc[-nwalkers:, :-1])
-        with open(run_name + '/chain.csv', 'a') as f:
+        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
             f.write('\n')
     except IOError:
         
@@ -133,8 +143,8 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
         print('Starting {}'.format(run_name))
         start_step = 0
         
-        with open(run_name + '/chain.csv', 'w') as f:
-            np.savetxt(f, (np.append([param[0] for param in to_vary], 'lnprob\n'),), 
+        with open(run_name + '/' + run_name + '_chain.csv', 'w') as f:
+            np.savetxt(f, (np.append([param[0] for param in to_vary], 'lnprob'),), 
                 delimiter=',', fmt='%s')
         pos = [[param[1] + param[2]*np.random.randn() for param in to_vary] 
             for i in range(nwalkers)] 
@@ -142,7 +152,7 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
     for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
         print("Step {}".format(start_step + i))
         pos, chisum, blob = result
-        with open(run_name + '/chain.csv', 'a') as f: 
+        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f: 
             np.savetxt(f, [np.append(pos[i], chisum[i]) for i in range(nwalkers)], delimiter=',')
 
     pool.close()

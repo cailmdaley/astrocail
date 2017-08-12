@@ -10,12 +10,12 @@ class Observation:
         self.root = root
         self.name = name
         self.path = root + name
-        
+
         self.rms = rms
         self.uvf  = fits.open(self.path + '.uvf')
         self.dec = self.uvf[3].data['DECEPO'][0]
         self.ra = self.uvf[3].data['RAEPO'][0]
-        
+
     def clean(self, show=True):
         """
         Clean and image (if desired) a observation-specific model.
@@ -80,13 +80,13 @@ class Model:
         self.root = root
         self.path = root + name
         self.chis = []
-        
-        # self.delete() # delete any preexisting files that will conflict
-        
+
+        self.delete() # delete any preexisting files that will conflict
+
     def delete(self):
         sp.call('rm -rf {}*'.format(self.path), shell=True)
 
-        
+
     def obs_sample(self, obs, suffix=''):
         """
         Create model fits file with correct header information and sample using
@@ -111,7 +111,7 @@ class Model:
         sp.call(['fits', 'op=uvout',
             'in={}.vis'.format(self.path + suffix),
             'out={}.uvf'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-            
+
     def make_residuals(self, obs, suffix='', show=False):
 
         """
@@ -124,7 +124,7 @@ class Model:
             'vis={}.vis'.format(obs.path),
             'model={}.im'.format(self.path + suffix),
             'out={}.residuals.vis'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'))
-        
+
         if show == True:
             self.clean(obs, residual=True)
 
@@ -166,24 +166,23 @@ class Model:
             'vis={}.vis'.format(path),
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
-            'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'])
+            'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'], stdout=open(os.devnull, 'wb'))
         sp.call(['clean',
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
             'out={}.cl'.format(path),
-            'region=arcsec,box(-5,-5,5,5)',
-            'niters=10000', 'cutoff={}'.format(rms/2.)])
+            'niters=10000', 'cutoff={}'.format(rms/2.)], stdout=open(os.devnull, 'wb'))
         sp.call(['restor',
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
             'model={}.cl'.format(path),
-            'out={}.cm'.format(path)])
-            
+            'out={}.cm'.format(path)], stdout=open(os.devnull, 'wb'))
+
         # Convert MIRIAD .im image file into fits
         sp.call(['fits', 'op=xyout',
             'in={}.cm'.format(path),
             'out={}.fits'.format(path)], stdout=open(os.devnull, 'wb'))
-            
+
         # Display clean image with 2,4,6 sigma contours, if desired
         if show == True:
 
@@ -199,7 +198,7 @@ class Model:
                 'region=arcsec,box(-5,-5,5,5)',
                 'labtyp=arcsec', 'beamtyp=b,l,3',])
             raw_input('\npress enter when ready to go on:')
-            
+
     def view_fits(self):
         model_image = fits.getdata(self.path + '.fits')[0]
         plt.imshow(model_image, origin='lower')

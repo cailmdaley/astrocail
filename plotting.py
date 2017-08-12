@@ -150,7 +150,7 @@ class Figure:
         # Colorbar label
         cbar.ax.text(0.425, 0.320, r'$\mu Jy / beam$', fontsize=12,
                      path_effects=[PathEffects.withStroke(linewidth=2, foreground="w")])
-
+        
         # Overplot the beam ellipse
         try:
             beam_ellipse_color = 'k'
@@ -185,14 +185,19 @@ class Figure:
                 ax.text(*t, fontsize=18,
                     path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")])
                     
+        if self.title:
+            plt.suptitle(self.title)
+                    
     def quickview(self):
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
+            
 
-    def __init__(self, paths, rmses, texts):
+    def __init__(self, paths, rmses, texts, savefile='figure.pdf', title=None, show=False):
         
         self.paths = [paths] if type(paths) is not list else paths
         rmses = [rmses] if type(rmses) is not list else rmses
+        self.title = title
         
         try:
             self.height, self.width = np.shape(self.paths)
@@ -210,7 +215,10 @@ class Figure:
                 self.get_fits(path)
                 self.make_axis(ax)
                 self.fill_axis(ax, text)
-        plt.savefig('run7/figure.pdf', dpi=700)
+        if savefile:
+            plt.savefig(savefile, dpi=700)
+        if show:
+            plt.show()
             
             
             
