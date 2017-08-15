@@ -16,7 +16,6 @@ class MCMCrun:
         self.burn_in = burn_in
         self.nsteps = self.main.shape[0] / nwalkers
         
-        
         # indentify bad walkers 
         print('Identifying bad walkers...')
         last_steps = self.main.iloc[self.nsteps/2:]
