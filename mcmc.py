@@ -67,26 +67,32 @@ class MCMCrun:
         if show:
             plt.show()
 
-    def kde(self):
+    def kde(self, show=False):
         print('Generating posterior kde plots...')
         
-        axes = self.groomed.plot(kind='kde',
-            figsize=(13, 5), layout=(2,-1),
-            subplots=True, sharex=False, 
-            rot=30, title=list(self.groomed.columns), legend=False,
-            color=sns.xkcd_rgb['dull blue'])
+        nrows, ncols = (2, int(np.ceil(self.groomed.shape[1]/2.)))
+        plt.close; fig, axes = plt.subplots(nrows, ncols, figsize=(1*ncols, 1.2*nrows))
         
+        # plot kde of each free parameter
+        for i, param in enumerate(self.groomed.columns):
+            plt.sca(axes.flatten()[i]) 
+            plt.xticks(rotation=25); plt.yticks([]); plt.title(param)
+            sns.kdeplot(self.groomed[param], cut=0, shade=True, legend=False, bw='silverman')
+            
+        # bivariate kde to fill last subplot
+        plt.sca(axes.flatten()[-1]) 
+        plt.xticks(rotation=25)
+        plt.gca().yaxis.set_label_position('right')
+        plt.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
+        # sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], cut=0, cmap='Blues');
         
-        for ax in axes.flatten():
-            ax.set_yticklabels('')
-            ax.set_ylabel('')
-            ax.yaxis.set_ticks([])
-            plt.tight_layout()
-        plt.subplots_adjust(wspace=-0.0)
-        
-        
+        # adjust spacing and save
+        plt.tight_layout(); plt.subplots_adjust(wspace=-0.0)
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
-        plt.show()
+        
+        if show:
+            plt.show()
+        
         
 def corner(run_name, nwalkers, stat_specs, burn_in=0, bad_walkers=[]):
     """ Plot 'corner plot' of fit"""

@@ -30,10 +30,10 @@ class Figure:
         plt.close()
         self.fig, self.axes = plt.subplots(self.rows, self.columns,     
             figsize=(11.6/2 * self.columns, 6.5*self.rows),
-            sharex=False, sharey=False)
+            sharex=False, sharey=False, squeeze=False)
         plt.subplots_adjust(wspace=-0.0)
         
-        for ax, path, rms, text  in zip(np.array(self.axes).flatten(), paths.flatten(), rmses.flatten(), texts.flatten()):
+        for ax, path, rms, text  in zip(self.axes.flatten(), paths.flatten(), rmses.flatten(), texts.flatten()):
             self.rms = rms
             self.get_fits(path)
             self.make_axis(ax)
