@@ -16,7 +16,6 @@ class MCMCrun:
         self.burn_in = burn_in
         self.nsteps = self.main.shape[0] / nwalkers
         
-        
         # indentify bad walkers 
         print('Identifying bad walkers...')
         last_steps = self.main.iloc[self.nsteps/2:]
@@ -70,7 +69,21 @@ class MCMCrun:
 
     def kde(self):
         print('Generating posterior kde plots...')
-        self.groomed.plot(kind='kde', subplots=True)
+        
+        axes = self.groomed.plot(kind='kde',
+            figsize=(13, 5), layout=(2,-1),
+            subplots=True, sharex=False, 
+            rot=30, title=list(self.groomed.columns), legend=False,
+            color=sns.xkcd_rgb['dull blue'])
+        
+        
+        for ax in axes.flatten():
+            ax.set_yticklabels('')
+            ax.set_ylabel('')
+            ax.yaxis.set_ticks([])
+            plt.tight_layout()
+        plt.subplots_adjust(wspace=-0.0)
+        
         
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
         plt.show()
