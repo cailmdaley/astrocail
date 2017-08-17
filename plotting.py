@@ -9,15 +9,41 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-# Set seaborn plot styles and color pallete
-sns.set_style("ticks",
-              {"xtick.direction": "in",
-               "ytick.direction": "in"})
-sns.set_context("talk")
-cpal = colormaps.jesse_reds
 
 
 class Figure:
+    
+    # Set seaborn plot styles and color pallete
+    sns.set_style("ticks",
+                  {"xtick.direction": "in",
+                   "ytick.direction": "in"})
+    sns.set_context("talk")
+    
+    def __init__(self, paths, rmses, texts, layout=(1,1),  savefile='figure.pdf', title=None, show=False):
+        rmses = np.array([rmses]) if type(rmses) is float else np.array(rmses)
+        texts = np.array([texts]) if type(texts) is str   else np.array(texts)
+        paths = np.array([paths]) if type(paths) is str   else np.array(paths)
+        self.title = title
+        self.rows, self.columns = layout
+        
+        # clear any pre existing figures, then create figure
+        plt.close()
+        self.fig, self.axes = plt.subplots(self.rows, self.columns,     
+            figsize=(11.6/2 * self.columns, 6.5*self.rows),
+            sharex=False, sharey=False)
+        plt.subplots_adjust(wspace=-0.0)
+        
+        for ax, path, rms, text  in zip(np.array(self.axes).flatten(), paths.flatten(), rmses.flatten(), texts.flatten()):
+            self.rms = rms
+            self.get_fits(path)
+            self.make_axis(ax)
+            self.fill_axis(ax, text)
+            
+        if savefile:
+            plt.savefig(savefile, dpi=700)
+        if show:
+            plt.show()
+            
 
     def get_fits(self, path):
         fits_file = fits.open(path)
@@ -69,9 +95,9 @@ class Figure:
         ax.tick_params(which='both', right='on', labelsize=18)
 
         # Set labels depending on position in figure
-        if np.where(self.axes == ax)[0] % self.width == 0: #left
+        if np.where(self.axes == ax)[0] % self.columns == 0: #left
             ax.tick_params(axis='y', labelright='off', right='on')
-        elif np.where(self.axes == ax)[0] % self.width == self.width - 1: #right
+        elif np.where(self.axes == ax)[0] % self.columns == self.columns - 1: # right
             ax.set_xlabel('')
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft='off', labelright='on')
@@ -91,7 +117,7 @@ class Figure:
             extent=self.extent,
             vmin=np.min(self.im),
             vmax=np.max(self.im),
-            cmap=cpal)
+            cmap=colormaps.jesse_reds)
 
         
         if self.rms:
@@ -177,7 +203,7 @@ class Figure:
             path_effects=[PathEffects.withStroke(linewidth=2, foreground="w")])
 
         # Plot a cross at the source position
-        # ax.plot([0.0], [0.0], '*', markersize=6, markeredgewidth=1, color='k')
+        # ax.plot([0.0], [0.0], '+', markersize=6, markeredgewidth=1, color='w')
 
         # Add figure text
         if text:
@@ -193,33 +219,6 @@ class Figure:
             plt.show(block=False)
             
 
-    def __init__(self, paths, rmses, texts, savefile='figure.pdf', title=None, show=False):
-        
-        self.paths = [paths] if type(paths) is not list else paths
-        rmses = [rmses] if type(rmses) is not list else rmses
-        self.title = title
-        
-        try:
-            self.height, self.width = np.shape(self.paths)
-        except ValueError:
-            self.width = np.shape(self.paths); self.height=1
-        
-        self.fig, self.axes = plt.subplots(self.height, self.width,     
-            figsize=(11.6/2 * self.width, 6.5*self.height),
-            sharex=False, sharey=False)
-        plt.subplots_adjust(wspace=-0.0)
-        
-        for row in zip(self.axes, self.paths, rmses, texts):
-            for ax, path, rms, text in zip(*row):
-                self.rms = rms
-                self.get_fits(path)
-                self.make_axis(ax)
-                self.fill_axis(ax, text)
-        if savefile:
-            plt.savefig(savefile, dpi=700)
-        if show:
-            plt.show()
-            
             
             
             

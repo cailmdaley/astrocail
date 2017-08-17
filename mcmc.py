@@ -10,7 +10,7 @@ class MCMCrun:
     def __init__(self, name, nwalkers, burn_in=0):
         
         # read in chain from .csv
-        self.main = pd.read_csv(name + '/' + name + '_chain.csv').iloc[100:]
+        self.main = pd.read_csv(name + '/' + name + '_chain.csv')
         self.name = name 
         self.nwalkers = nwalkers
         self.burn_in = burn_in
@@ -69,7 +69,21 @@ class MCMCrun:
 
     def kde(self):
         print('Generating posterior kde plots...')
-        self.groomed.plot(kind='kde', subplots=True)
+        
+        axes = self.groomed.plot(kind='kde',
+            figsize=(13, 5), layout=(2,-1),
+            subplots=True, sharex=False, 
+            rot=30, title=list(self.groomed.columns), legend=False,
+            color=sns.xkcd_rgb['dull blue'])
+        
+        
+        for ax in axes.flatten():
+            ax.set_yticklabels('')
+            ax.set_ylabel('')
+            ax.yaxis.set_ticks([])
+            plt.tight_layout()
+        plt.subplots_adjust(wspace=-0.0)
+        
         
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
         plt.show()
