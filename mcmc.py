@@ -16,7 +16,6 @@ class MCMCrun:
         self.burn_in = burn_in
         self.nsteps = self.main.shape[0] / nwalkers
         
-        # indentify bad walkers 
         print('Identifying bad walkers...')
         last_steps = self.main.iloc[self.nsteps/2:]
         last_steps.index %= nwalkers
@@ -25,11 +24,12 @@ class MCMCrun:
             if last_steps.loc[i].duplicated(keep=False).sum() == len(last_steps) / nwalkers:
                 self.bad_walkers.append(i)
                 
-        print('Walkers {} have not converged.'.format(tuple(self.bad_walkers)))
                 
         self.converged = self.main.drop([row for row in self.main.index 
             if row%nwalkers in self.bad_walkers])
+        print('Removed walkers {}.'.format(tuple(self.bad_walkers)))
         self.burnt_in = self.main.iloc[burn_in*nwalkers:]
+        print('Removed first {} steps'.format(burn_in))
         self.no_infs = self.main[self.main['lnprob'] != -np.inf]
         
         self.groomed = self.converged.merge(self.burnt_in.merge(self.no_infs, how='inner'), how='inner')
