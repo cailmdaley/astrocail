@@ -29,8 +29,8 @@ class MCMCrun:
             if row%nwalkers in self.bad_walkers])
         print('Removed walkers {}.'.format(tuple(self.bad_walkers)))
         self.burnt_in = self.main.iloc[burn_in*nwalkers:]
-        print('Removed first {} steps'.format(burn_in))
-        self.no_infs = self.main[self.main['lnprob'] != -np.inf]
+        print('Removed burn-in phase (first {} steps).'.format(burn_in))
+        self.no_infs = self.main[self.main['lnprob'] != -np.inf].dropna()
         
         self.groomed = self.converged.merge(self.burnt_in.merge(self.no_infs, how='inner'), how='inner')
         
@@ -61,23 +61,28 @@ class MCMCrun:
         
         walker_means = pd.DataFrame([main.loc[i].mean() for i in range(self.nsteps)])
         walker_means.plot(subplots=True, ax=axes, legend=False, color='forestgreen', ls='--')
-
+        
         plt.suptitle(self.name + ' walker evolution')
         plt.savefig(self.name + '/' + self.name + '_evolution.pdf'.format(self.name), dpi=700)
         if show:
             plt.show()
 
     def kde(self, show=False):
+        # self.groomed = pd.read_csv('/Volumes/disks/CAIL/AU_Mic/modeling/run6/run6_chain.csv')
         print('Generating posterior kde plots...')
         
         nrows, ncols = (2, int(np.ceil(self.groomed.shape[1]/2.)))
-        plt.close; fig, axes = plt.subplots(nrows, ncols, figsize=(1*ncols, 1.2*nrows))
+        plt.close; fig, axes = plt.subplots(nrows, ncols, figsize=(2*ncols, 2.5*nrows))
         
         # plot kde of each free parameter
         for i, param in enumerate(self.groomed.columns):
             plt.sca(axes.flatten()[i]) 
             plt.xticks(rotation=25); plt.yticks([]); plt.title(param)
-            sns.kdeplot(self.groomed[param], cut=0, shade=True, legend=False, bw='silverman')
+            
+            samples = self.groomed[param]
+            q1, q3 = samples.quantile([.25,.75])
+            bw = 3 * (1.0659 * min(samples.std(), q3-q1)  * samples.size ** (-1 / 5.))
+            sns.kdeplot(samples, cut=0, shade=True, legend=False, bw=bw)
             
         # bivariate kde to fill last subplot
         plt.sca(axes.flatten()[-1]) 
@@ -90,8 +95,8 @@ class MCMCrun:
         plt.tight_layout(); plt.subplots_adjust(wspace=-0.0)
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
         
-        if show:
-            plt.show()
+        # if show:
+        plt.show()
         
         
 def corner(run_name, nwalkers, stat_specs, burn_in=0, bad_walkers=[]):
