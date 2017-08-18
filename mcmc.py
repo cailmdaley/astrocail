@@ -77,26 +77,27 @@ class MCMCrun:
         # plot kde of each free parameter
         for i, param in enumerate(self.groomed.columns):
             plt.sca(axes.flatten()[i]) 
-            plt.xticks(rotation=25); plt.yticks([]); plt.title(param)
+            plt.xticks(rotation=45); plt.yticks([]); plt.title(param)
             
             samples = self.groomed[param]
             q1, q3 = samples.quantile([.25,.75])
-            bw = 3 * (1.0659 * min(samples.std(), q3-q1)  * samples.size ** (-1 / 5.))
-            sns.kdeplot(samples, cut=0, shade=True, legend=False, bw=bw)
+            bw = 5 * (1.0659 * min(samples.std(), q3-q1)  * samples.size ** (-1 / 5.))
+            sns.kdeplot(samples, shade=True, legend=False, bw=bw, cut=0)
             
         # bivariate kde to fill last subplot
         plt.sca(axes.flatten()[-1]) 
-        plt.xticks(rotation=25)
+        plt.xticks(rotation=45)
         plt.gca().yaxis.set_label_position('right')
         plt.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
-        # sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], cut=0, cmap='Blues');
+        sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], cmap='Blues');
         
         # adjust spacing and save
-        plt.tight_layout(); plt.subplots_adjust(wspace=-0.0)
+        plt.tight_layout(); plt.subplots_adjust(wspace=0)
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
         
         # if show:
-        plt.show()
+        plt.show(block=False)
+        raw_input('Press enter when ready:')
         
         
 def corner(run_name, nwalkers, stat_specs, burn_in=0, bad_walkers=[]):
