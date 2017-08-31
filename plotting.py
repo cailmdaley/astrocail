@@ -5,6 +5,7 @@ from matplotlib.patches import Ellipse
 from matplotlib.ticker import MultipleLocator, LinearLocator, AutoMinorLocator
 from astrocail import colormaps
 import matplotlib.patheffects as PathEffects
+import sklearn.neighbors, sklearn.model_selection
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -218,7 +219,25 @@ class Figure:
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
             
+def my_kde(samples, ax=None, show=False):
+    # if ax is None: fig, ax = plt.subplots()
 
+    q1, q3 = samples.quantile([.25,.75])
+    scotts = 1.059 * min(samples.std(), q3-q1) * samples.size ** (-1 / 5.)
+    x_grid = np.linspace(samples.min(), samples.max(), 500)
+
+    kde = sklearn.neighbors.KernelDensity(bandwidth=2*scotts)
+    kde.fit(samples.values.reshape(-1,1))
+    pdf = np.exp(kde.score_samples(x_grid.reshape(-1,1)))
+    
+    ax.plot(x_grid, pdf)
+    
+    if show:
+        plt.show()
+    
+    # bw_search = sklearn.model_selection.GridSearchCV(
+    #     sklearn.neighbors.kde.KernelDensity(), 
+    #     {'bandwidth': scotts * np.array([0.1, 0.5, 1, 2, 4, 5, 10])})
             
             
             
@@ -252,13 +271,3 @@ class Figure:
 # 
 # 
 # 
-# def my_kde(df):
-#     mdisk = posterior['sb_law'].values.reshape(-1,1)
-#     bw_search = GridSearchCV(KernelDensity(), {'bandwidth': np.linspace(0, mdisk.std(), 5)})
-#     bw_search.fit(mdisk)
-#     kde = bw_search.best_estimator_.fit((mdisk))
-#     x = np.linspace(mdisk.min(), mdisk.max(), 1000)[:,None]
-#     pdf = np.exp(kde.score_samples(x))
-#     
-#     plt.plot(x, pdf)
-#     plt.show()

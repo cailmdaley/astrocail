@@ -5,18 +5,18 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import emcee
+from astrocail import plotting
 
 class MCMCrun:
-    def __init__(self, name, nwalkers, burn_in=0):
+    def __init__(self, name, nwalkers, path=None, burn_in=0):
         
         # read in chain from .csv
-        self.main = pd.read_csv(name + '/' + name + '_chain.csv')
+        self.main = pd.read_csv(path + '.csv') if path else pd.read_csv(name + '/' + name + '_chain.csv')
         self.name = name 
         self.nwalkers = nwalkers
         self.burn_in = burn_in
         self.nsteps = self.main.shape[0] / nwalkers
         
-        print('Identifying bad walkers...')
         last_steps = self.main.iloc[self.nsteps/2:]
         last_steps.index %= nwalkers
         self.bad_walkers = []
@@ -25,14 +25,13 @@ class MCMCrun:
                 self.bad_walkers.append(i)
                 
                 
-        self.converged = self.main.drop([row for row in self.main.index 
-            if row%nwalkers in self.bad_walkers])
-        print('Removed walkers {}.'.format(tuple(self.bad_walkers)))
         self.burnt_in = self.main.iloc[burn_in*nwalkers:]
+        self.converged = self.burnt_in.drop([row for row in self.burnt_in.index 
+            if row%nwalkers in self.bad_walkers])
+        print('Removed bad walkers {}.'.format(tuple(self.bad_walkers)))
         print('Removed burn-in phase (first {} steps).'.format(burn_in))
-        self.no_infs = self.main[self.main['lnprob'] != -np.inf].dropna()
         
-        self.groomed = self.converged.merge(self.burnt_in.merge(self.no_infs, how='inner'), how='inner')
+        self.groomed = self.converged[self.converged['lnprob'] != -np.inf]
         
     def evolution(self, show=False):
         print('Making walker evolution plot...')
@@ -68,36 +67,44 @@ class MCMCrun:
             plt.show()
 
     def kde(self, show=False):
-        # self.groomed = pd.read_csv('/Volumes/disks/CAIL/AU_Mic/modeling/run6/run6_chain.csv')
         print('Generating posterior kde plots...')
+        plt.close()
         
         nrows, ncols = (2, int(np.ceil(self.groomed.shape[1]/2.)))
-        plt.close; fig, axes = plt.subplots(nrows, ncols, figsize=(2*ncols, 2.5*nrows))
+        fig, axes = plt.subplots(nrows, ncols, figsize=(2.5*ncols, 2.5*nrows))
         
         # plot kde of each free parameter
         for i, param in enumerate(self.groomed.columns):
-            plt.sca(axes.flatten()[i]) 
-            plt.xticks(rotation=45); plt.yticks([]); plt.title(param)
+            ax = axes.flatten()[i]
+            
+            for tick in ax.get_xticklabels(): tick.set_rotation(30)    
+            ax.set_title(param)
+            ax.tick_params(axis='y', left='off', labelleft='off')
             
             samples = self.groomed[param]
-            q1, q3 = samples.quantile([.25,.75])
-            bw = 5 * (1.0659 * min(samples.std(), q3-q1)  * samples.size ** (-1 / 5.))
-            sns.kdeplot(samples, shade=True, legend=False, bw=bw, cut=0)
+            plotting.my_kde(samples, ax=ax)
+            
+            percentiles = samples.quantile([.16,.5,.84])
+            ax.axvline(percentiles.iloc[0], lw=1, ls='dotted', color='k', alpha=0.5)
+            ax.axvline(percentiles.iloc[1], lw=1.5, ls='dotted', color='k')
+            ax.axvline(percentiles.iloc[2], lw=1, ls='dotted', color='k', alpha=0.5)
+            
+            
+            
             
         # bivariate kde to fill last subplot
-        plt.sca(axes.flatten()[-1]) 
-        plt.xticks(rotation=45)
-        plt.gca().yaxis.set_label_position('right')
-        plt.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
-        sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], cmap='Blues');
+        ax = axes.flatten()[-1]
+        for tick in ax.get_xticklabels(): tick.set_rotation(30)    
+        sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], shade=True, cmap='Blues', n_levels=6, ax=ax);
+        ax.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
+        
         
         # adjust spacing and save
-        plt.tight_layout(); plt.subplots_adjust(wspace=0)
+        plt.tight_layout()
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
         
         # if show:
         plt.show(block=False)
-        raw_input('Press enter when ready:')
         
         
 def corner(run_name, nwalkers, stat_specs, burn_in=0, bad_walkers=[]):
