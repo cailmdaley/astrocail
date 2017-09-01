@@ -1,5 +1,6 @@
 from emcee.utils import MPIPool
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 import subprocess as sp
 import numpy as np
 import pandas as pd
@@ -21,30 +22,27 @@ class MCMCrun:
         last_steps.index %= nwalkers
         self.bad_walkers = []
         for i in range(nwalkers):
-            if last_steps.loc[i].duplicated(keep=False).sum() == len(last_steps) / nwalkers:
+            if last_steps.loc[i,:].duplicated(keep=False).sum() == len(last_steps) / nwalkers:
                 self.bad_walkers.append(i)
                 
                 
-        self.burnt_in = self.main.iloc[burn_in*nwalkers:]
+        self.burnt_in = self.main.iloc[burn_in*nwalkers:, :]
         self.converged = self.burnt_in.drop([row for row in self.burnt_in.index 
             if row%nwalkers in self.bad_walkers])
         print('Removed bad walkers {}.'.format(tuple(self.bad_walkers)))
         print('Removed burn-in phase (first {} steps).'.format(burn_in))
         
-        self.groomed = self.converged[self.converged['lnprob'] != -np.inf]
+        self.groomed = self.converged.loc[self.converged.loc[:,'lnprob'] != -np.inf, :]
         
-    def evolution(self, show=False):
+    def evolution(self):
         print('Making walker evolution plot...')
         plt.close()
         
         main = self.main.copy()
-        main['lnprob'][np.isinf(main['lnprob'])] = np.nan
-        
-        
 
         color = 'red' if 0 in self.bad_walkers else 'black'
         axes = main.iloc[0::self.nwalkers].plot(
-            x=np.arange(self.nsteps), figsize=(7, 2.2*(len(main.columns))), 
+            x=np.arange(self.nsteps), figsize=(7, 2.0*(len(main.columns))), 
             subplots=True, color=color, alpha=0.5)
             
         for i in range(self.nwalkers-1):
@@ -53,9 +51,7 @@ class MCMCrun:
                 x=np.arange(self.nsteps), subplots=True, ax=axes, 
                 legend=False, color=color, alpha=0.5)
 
-        
-        main[np.isnan(main['lnprob'])] = np.nan
-        print(main[main['lnprob'] == np.nan])
+        main.drop([row for row in main.index if row%self.nwalkers in self.bad_walkers], inplace=True)
         main.index //= self.nwalkers
         
         walker_means = pd.DataFrame([main.loc[i].mean() for i in range(self.nsteps)])
@@ -63,10 +59,8 @@ class MCMCrun:
         
         plt.suptitle(self.name + ' walker evolution')
         plt.savefig(self.name + '/' + self.name + '_evolution.pdf'.format(self.name), dpi=700)
-        if show:
-            plt.show()
-
-    def kde(self, show=False):
+        
+    def kde(self):
         print('Generating posterior kde plots...')
         plt.close()
         
@@ -81,7 +75,7 @@ class MCMCrun:
             ax.set_title(param)
             ax.tick_params(axis='y', left='off', labelleft='off')
             
-            samples = self.groomed[param]
+            samples = self.groomed.loc[:,param]
             plotting.my_kde(samples, ax=ax)
             
             percentiles = samples.quantile([.16,.5,.84])
@@ -90,60 +84,63 @@ class MCMCrun:
             ax.axvline(percentiles.iloc[2], lw=1, ls='dotted', color='k', alpha=0.5)
             
             
+        # hide unfilled axes
+        for ax in axes.flatten()[self.groomed.shape[1]:]:
+            ax.set_axis_off()
             
             
         # bivariate kde to fill last subplot
-        ax = axes.flatten()[-1]
-        for tick in ax.get_xticklabels(): tick.set_rotation(30)    
-        sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], shade=True, cmap='Blues', n_levels=6, ax=ax);
-        ax.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
+        # ax = axes.flatten()[-1]
+        # for tick in ax.get_xticklabels(): tick.set_rotation(30)    
+        # sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], shade=True, cmap='Blues', n_levels=6, ax=ax);
+        # ax.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
         
         
         # adjust spacing and save
         plt.tight_layout()
         plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
         
-        # if show:
-        plt.show(block=False)
         
+    def corner(self):
+        """ Plot 'corner plot' of fit"""
+        plt.close()
+
+        # make corner plot
+        # corner = sns.PairGrid(self.groomed, diag_sharey=False, despine=False)
+        corner = sns.PairGrid(self.groomed, diag_sharey=False, despine=False)
+        corner.map_diag(sns.kdeplot, cut=0)
+        corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=True)
+        corner.map_lower(plt.scatter, s=1, color='#708090', alpha=0.2)
+        corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=False)
+
+        # get best_fit and posterior statistics
+        stats = self.groomed.describe().drop(['count', 'min', 'max'])
+        stats.loc['best fit'] = self.main.loc[self.main['lnprob'].idxmax()]
+        stats = stats.iloc[[-1]].append(stats.iloc[:-1])
+        # print(stats.round(2).to_latex())
+
+        table_ax = corner.fig.add_axes([0,0,1,1], frameon=False)
+        table_ax.axis('off')
+        left, bottom = 0.15, 0.83
+        pd.plotting.table(table_ax, stats.round(2), bbox=[left, bottom, 1-left, .12], edges='open', colLoc='right')
+
+        # hide upper triangle, so that it's a conventional corner plot
+        for i, j in zip(*np.triu_indices_from(corner.axes, 1)):
+            corner.axes[i, j].set_visible(False)
+
+        for ax in corner.axes.flat:
+            ax.xaxis.set_major_formatter(FormatStrFormatter('%.3g'))
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%.3g'))
+
+            title = self.name + 'Corner Plot'
+
+        plt.subplots_adjust(top=0.9)
+        corner.fig.suptitle(r'{} Parameters, {} Walkers, {} Steps $\to$ {} Samples'
+            .format(self.groomed.shape[1], self.nwalkers, 
+            self.groomed.shape[0]//self.nwalkers, self.groomed.shape[0], 
+            fontsize=25))
+        plt.savefig(self.name + '/' + self.name + '_corner.pdf'.format(self.name), dpi=700)
         
-def corner(run_name, nwalkers, stat_specs, burn_in=0, bad_walkers=[]):
-    """ Plot 'corner plot' of fit"""
-    plt.close()
-
-    # make corner plot
-    corner = sns.PairGrid(self.groomed, diag_sharey=False, despine=False)
-    corner.map_diag(sns.kdeplot, cut=0)
-    corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=True)
-    corner.map_lower(plt.scatter, s=1, color='#708090', alpha=0.2)
-    corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=False)
-
-    # get best_fit and posterior statistics
-    stats = self.groomed.describe().drop(['count', 'min', 'max'])
-    stats.loc['best fit'] = samples.drop('lnprob', 1).loc[samples['lnprob'].idxmax()]
-    stats = stats.iloc[[-1]].append(stats.iloc[:-1])
-    # print(stats.round(2).to_latex())
-
-    table_ax = corner.fig.add_axes([0,0,1,1], frameon=False)
-    table_ax.axis('off')
-    left, bottom = stat_specs
-    pd.plotting.table(table_ax, stats.round(2), bbox=[left, bottom, 1-left, .12], edges='open', colLoc='right')
-
-    # hide upper triangle, so that it's a conventional corner plot
-    for i, j in zip(*np.triu_indices_from(corner.axes, 1)):
-        corner.axes[i, j].set_visible(False)
-
-    for ax in corner.axes.flat:
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%.3g'))
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%.3g'))
-
-        title = self.name + 'Corner Plot'
-
-    plt.subplots_adjust(top=0.9)
-    corner.fig.suptitle(r'{} Parameters, {} Walkers, {} Steps $\to$ {} Samples'
-        .format(posterior.shape[1], nwalkers, posterior.shape[0]//nwalkers, posterior.shape[0], fontsize=25))
-    plt.savefig(self.name + '/' + self.name + '_corner.pdf'.format(self.name), dpi=700)
-
 def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
     pool = MPIPool()
     if not pool.is_master():
