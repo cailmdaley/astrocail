@@ -18,7 +18,7 @@ def concat(infiles, outfile):
         "concatvis='{}.ms', dirtol='2arcsec')".format(outfile)))
     return outfile
     
-def obs_clean(path, rms_region, mask, clean_up=True):
+def obs_clean(path, rms_region, mask, weighting='natural', clean_up=True):
          
     dirty_path = path + '.dirty'
     clean_path = path + '.clean'
@@ -33,7 +33,7 @@ def obs_clean(path, rms_region, mask, clean_up=True):
             "imagename='{}',".format(dirty_path),
             "imsize=512,",
             "cell='0.03arcsec',",
-            "weighting='natural',",
+            "weighting='{}',".format(weighting),
             "niter=0)"),
         ("rms = imstat("
             "imagename='{}.image',".format(dirty_path),
@@ -43,7 +43,7 @@ def obs_clean(path, rms_region, mask, clean_up=True):
             "imagename='{}',".format(clean_path),
             "imsize=512,",
             "cell='0.03arcsec',",
-            "weighting='natural',",
+            "weighting='{}',".format(weighting),
             "niter=100000000,",
             "threshold=rms/2.,",
             "mask='{}')".format(mask)),
