@@ -68,8 +68,6 @@ def obs_clean(path, rms_region, mask, weighting='natural', uvtaper=None, clean_u
     #     viewer(infile=image + '.residual', displaytype='contour')
     #     raw_input('mask ready? ')
 
-    # 
-    # 
     # # if view: viewer(infile=image + '.image')
     # 
     # sp.call("rm -rf {}.*".format(dirty_path), shell=True)
