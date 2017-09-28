@@ -18,21 +18,10 @@ class MCMCrun:
         self.burn_in = burn_in
         self.nsteps = self.main.shape[0] / nwalkers
         
-        last_steps = self.main.iloc[self.nsteps/2:]
-        last_steps.index %= nwalkers
-        self.bad_walkers = []
-        for i in range(nwalkers):
-            if last_steps.loc[i,:].duplicated(keep=False).sum() == len(last_steps) / nwalkers:
-                self.bad_walkers.append(i)
-                
-                
+        # groom the chain
         self.burnt_in = self.main.iloc[burn_in*nwalkers:, :]
-        self.converged = self.burnt_in.drop([row for row in self.burnt_in.index 
-            if row%nwalkers in self.bad_walkers])
-        print('Removed bad walkers {}.'.format(tuple(self.bad_walkers)))
+        self.groomed = self.burnt_in.loc[self.burnt_in.loc[:,'lnprob'] != -np.inf, :]
         print('Removed burn-in phase (first {} steps).'.format(burn_in))
-        
-        self.groomed = self.converged.loc[self.converged.loc[:,'lnprob'] != -np.inf, :]
         
     def evolution(self):
         print('Making walker evolution plot...')
@@ -40,25 +29,25 @@ class MCMCrun:
         
         main = self.main.copy()
 
-        color = 'red' if 0 in self.bad_walkers else 'black'
         axes = main.iloc[0::self.nwalkers].plot(
             x=np.arange(self.nsteps), figsize=(7, 2.0*(len(main.columns))), 
-            subplots=True, color=color, alpha=0.5)
+            subplots=True, color='black', alpha=0.1)
             
         for i in range(self.nwalkers-1):
-            color = 'red' if i+1 in self.bad_walkers else 'black'
             main.iloc[i+1::self.nwalkers].plot(
                 x=np.arange(self.nsteps), subplots=True, ax=axes, 
-                legend=False, color=color, alpha=0.5)
-
-        main.drop([row for row in main.index if row%self.nwalkers in self.bad_walkers], inplace=True)
-        main.index //= self.nwalkers
+                legend=False, color='black', alpha=0.1)
         
-        walker_means = pd.DataFrame([main.loc[i].mean() for i in range(self.nsteps)])
-        walker_means.plot(subplots=True, ax=axes, legend=False, color='forestgreen', ls='--')
+        # make y-limits on lnprob subplot reasonable
+            axes[-1].set_ylim(main.iloc[-1, -1 * self.nwalkers:].min()-15, main.lnprob.max())
+
+        # if you want mean at each step over plotted:
+        # main.index //= self.nwalkers
+        # walker_means = pd.DataFrame([main.loc[i].mean() for i in range(self.nsteps)])
+        # walker_means.plot(subplots=True, ax=axes, legend=False, color='forestgreen', ls='--')
         
         plt.suptitle(self.name + ' walker evolution')
-        plt.savefig(self.name + '/' + self.name + '_evolution.pdf'.format(self.name), dpi=700)
+        plt.savefig(self.name + '/' + self.name + '_evolution.png'.format(self.name))#, dpi=1)
         
     def kde(self):
         print('Generating posterior kde plots...')
@@ -88,37 +77,35 @@ class MCMCrun:
         for ax in axes.flatten()[self.groomed.shape[1]:]:
             ax.set_axis_off()
             
-            
         # bivariate kde to fill last subplot
         # ax = axes.flatten()[-1]
         # for tick in ax.get_xticklabels(): tick.set_rotation(30)    
         # sns.kdeplot(self.groomed[r'$i$ ($\degree$)'], self.groomed[r'Scale Factor'], shade=True, cmap='Blues', n_levels=6, ax=ax);
         # ax.tick_params(axis='y', left='off', labelleft='off', right='on', labelright='on')
         
-        
         # adjust spacing and save
         plt.tight_layout()
-        plt.savefig(self.name + '/' + self.name + '_kde.pdf'.format(self.name), dpi=700)
+        plt.savefig(self.name + '/' + self.name + '_kde.png'.format(self.name))
         
         
     def corner(self):
         """ Plot 'corner plot' of fit"""
         plt.close()
 
-        # make corner plot
-        # corner = sns.PairGrid(self.groomed, diag_sharey=False, despine=False)
-        corner = sns.PairGrid(self.groomed, diag_sharey=False, despine=False)
-        corner.map_diag(sns.kdeplot, cut=0)
-        corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=True)
-        corner.map_lower(plt.scatter, s=1, color='#708090', alpha=0.2)
-        corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=False)
-
         # get best_fit and posterior statistics
-        stats = self.groomed.describe().drop(['count', 'min', 'max'])
+        stats = self.groomed.describe(percentiles=[0.16,0.84]).drop(['count', 'min', 'max', 'mean'])
         stats.loc['best fit'] = self.main.loc[self.main['lnprob'].idxmax()]
         stats = stats.iloc[[-1]].append(stats.iloc[:-1])
+        # print(stats.round(3).to_string())
         # print(stats.round(2).to_latex())
+        
+        # make corner plot
+        corner = sns.PairGrid(self.groomed, diag_sharey=False, despine=False)
+        corner.map_diag(sns.kdeplot, cut=0)
+        corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=18, shade=True)
+        corner.map_lower(sns.kdeplot, cut=0, cmap='Blues', n_levels=3, shade=False)
 
+        # add stats to corner plot as table
         table_ax = corner.fig.add_axes([0,0,1,1], frameon=False)
         table_ax.axis('off')
         left, bottom = 0.15, 0.83
@@ -128,18 +115,17 @@ class MCMCrun:
         for i, j in zip(*np.triu_indices_from(corner.axes, 1)):
             corner.axes[i, j].set_visible(False)
 
+        # fix decimal representation
         for ax in corner.axes.flat:
             ax.xaxis.set_major_formatter(FormatStrFormatter('%.3g'))
             ax.yaxis.set_major_formatter(FormatStrFormatter('%.3g'))
-
-            title = self.name + 'Corner Plot'
 
         plt.subplots_adjust(top=0.9)
         corner.fig.suptitle(r'{} Parameters, {} Walkers, {} Steps $\to$ {} Samples'
             .format(self.groomed.shape[1], self.nwalkers, 
             self.groomed.shape[0]//self.nwalkers, self.groomed.shape[0], 
             fontsize=25))
-        plt.savefig(self.name + '/' + self.name + '_corner.pdf'.format(self.name), dpi=700)
+        plt.savefig(self.name + '/' + self.name + '_corner.png'.format(self.name))
         
 def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
     pool = MPIPool()
@@ -179,3 +165,36 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
             np.savetxt(f, [np.append(pos[i], chisum[i]) for i in range(nwalkers)], delimiter=',')
 
     pool.close()
+    
+def run_emcee_simple(run_name, nsteps, nwalkers, lnprob, to_vary):
+    # initiate sampler chain
+    ndim = len(to_vary[0])
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=to_vary)
+
+    try:
+        chain = pd.read_csv(run_name + '/' + run_name + '_chain.csv')
+        start_step = chain.index[-1] // nwalkers
+        print('Resuming {} at step {}'.format(run_name, start_step))
+        pos = np.array(chain.iloc[-nwalkers:, :-1])
+        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
+            f.write('\n')
+            
+    except IOError:
+        
+        sp.call(['mkdir', run_name])
+        sp.call(['mkdir', run_name + '/model_files'])
+        
+        print('Starting {}'.format(run_name))
+        start_step = 0
+        
+        with open(run_name + '/' + run_name + '_chain.csv', 'w') as f:
+            np.savetxt(f, (np.append([param[0] for param in to_vary[0]], 'lnprob'),), 
+                delimiter=',', fmt='%s')
+        pos = [[param[1] + param[2]*np.random.randn() for param in to_vary[0]] 
+            for i in range(nwalkers)] 
+            
+    for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
+        print("Step {}".format(start_step + i))
+        pos, chisum, blob = result
+        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f: 
+            np.savetxt(f, [np.append(pos[i], chisum[i]) for i in range(nwalkers)], delimiter=',')

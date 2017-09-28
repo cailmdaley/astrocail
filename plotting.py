@@ -35,7 +35,6 @@ class Figure:
         plt.subplots_adjust(wspace=-0.0)
         
         for ax, path, rms, text  in zip(self.axes.flatten(), paths.flatten(), rmses.flatten(), texts.flatten()):
-            print(path)
             self.rms = rms
             self.get_fits(path)
             self.make_axis(ax)
@@ -160,7 +159,6 @@ class Figure:
         cbar.ax.xaxis.set_tick_params(direction='out', length=2, which='minor',
             bottom='off', top='on')
         
-        print(np.max(self.im))
         if np.max(self.im) > 500:
             tickmaj = 200; tickmin = 50
         elif np.max(self.im) > 200:
