@@ -18,14 +18,15 @@ def concat(infiles, outfile):
         "concatvis='{}.ms', dirtol='2arcsec')".format(outfile)))
     return outfile
     
-def obs_clean(path, rms_region, mask, clean_up=True):
+def obs_clean(path, rms_region, mask, weighting='natural', uvtaper=None, clean_up=True):
          
-    dirty_path = path + '.dirty'
-    clean_path = path + '.clean'
+    suffix = uvtaper[0] if uvtaper else weighting
+    dirty_path = path + '.' + suffix + '_dirty'
+    clean_path = path + '.' + suffix + '_clean'
     
-    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path), shell=True)
+    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path + '.' + suffix), shell=True)
     print('==================================')
-    print('Cleaning {}...'.format(path))
+    print('Making {}...'.format(clean_path))
     print('==================================')
     pipe(
         ("tclean(",
@@ -33,7 +34,8 @@ def obs_clean(path, rms_region, mask, clean_up=True):
             "imagename='{}',".format(dirty_path),
             "imsize=512,",
             "cell='0.03arcsec',",
-            "weighting='natural',",
+            "weighting='{}',".format(weighting),
+            "uvtaper={},".format(uvtaper),
             "niter=0)"),
         ("rms = imstat("
             "imagename='{}.image',".format(dirty_path),
@@ -43,7 +45,8 @@ def obs_clean(path, rms_region, mask, clean_up=True):
             "imagename='{}',".format(clean_path),
             "imsize=512,",
             "cell='0.03arcsec',",
-            "weighting='natural',",
+            "weighting='{}',".format(weighting),
+            "uvtaper={},".format(uvtaper),
             "niter=100000000,",
             "threshold=rms/2.,",
             "mask='{}')".format(mask)),
@@ -57,7 +60,7 @@ def obs_clean(path, rms_region, mask, clean_up=True):
         
     #clean up dirty files (hehe)
     if clean_up:
-        sp.call('rm -rf {}*{{.dirty.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path), shell=True)
+        sp.call('rm -rf {}*{{dirty.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path + '.' + suffix), shell=True)
     
     # if view:
     #     #Show dirty image, then clean up and delete all dirty clean files
