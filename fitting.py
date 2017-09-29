@@ -13,8 +13,12 @@ class Observation:
 
         self.rms = rms
         self.uvf  = fits.open(self.path + '.uvf')
-        self.dec = self.uvf[3].data['DECEPO'][0]
-        self.ra = self.uvf[3].data['RAEPO'][0]
+        try:
+            self.dec = self.uvf[0].data['OBSDEC'][0]
+            self.ra = self.uvf[0].data['OBSRA'][0]
+        except:
+            self.dec = self.uvf[3].data['DECEPO'][0]
+            self.ra = self.uvf[3].data['RAEPO'][0]
 
     def clean(self, show=True):
         """
