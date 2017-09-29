@@ -136,24 +136,25 @@ class Model:
         """
         Return chi^2 statistics of model.
         """
-
-        datrlimwt = obs.uvf[0].data['data']
-        datrl_xx = datrlimwt[:, 0, 0, 0, 0, 0, 0]
-        datrl_yy = datrlimwt[:, 0, 0, 0, 0, 1, 0]
-        datim_xx = datrlimwt[:, 0, 0, 0, 0, 0, 1]
-        datim_yy = datrlimwt[:, 0, 0, 0, 0, 1, 1]
-        weights =  datrlimwt[:, 0, 0, 0, 0, 0, 2]
-        datrl_stokes = np.array((datrl_xx + datrl_yy) / 2.)
-        datim_stokes = np.array((datim_xx + datim_yy) / 2.)
-
-        uvf  = fits.open(self.path + suffix + '.uvf')
-        modrlimwt = uvf[0].data['data']
-        modrl_stokes = modrlimwt[::2, 0, 0, 0, 0, 0]
-        modim_stokes = modrlimwt[::2, 0, 0, 0, 0, 1]
+        
+        data_rlimwt = (obs.uvf[0].data['data']).squeeze()
+    
+        weights =  data_rlimwt[:,:,2]
+        if data_rlimwt.shape[1] == 2: # polarized; turn to stokes
+            data_real = (data_rlimwt[:,0,0]+data_rlimwt[:,1,0])/2.
+            data_imag = (data_rlimwt[:,0,1]+data_rlimwt[:,1,1])/2.
+        else: # already stokes
+            data_real = data_rlimwt[:,0,0]
+            data_imag = data_rlimwt[:,0,1]
+        
+        model_uvf  = fits.open(self.path + suffix + '.uvf')
+        model_rlimwt = (model_uvf[0].data['data']).squeeze()
+        model_real = model_rlimwt[::2,0,0]
+        modim_imag = model_rlimwt[::2,0,1]
 
         # Calculate chi^2
-        chi = np.sum((datrl_stokes - modrl_stokes)**2 * weights +
-                     (datim_stokes - modim_stokes)**2 * weights)
+        chi = np.sum((data_real - model_real)**2 * weights +
+                     (data_imag - model_imag)**2 * weights)
 
         self.chis.append(chi)
 
