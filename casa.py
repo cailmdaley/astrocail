@@ -1,7 +1,7 @@
 import subprocess as sp
 import numpy as np
 
-def pipe(*commands):
+def pipe(commands):
     call_string = '\n'.join([command if type(command) is str else '\n'.join(command) for command in commands])
     print('Piping the following commands to CASA:\n')
     print(call_string)
@@ -18,17 +18,16 @@ def concat(infiles, outfile):
         "concatvis='{}.ms', dirtol='2arcsec')".format(outfile)))
     return outfile
     
-def obs_clean(path, rms_region, mask, weighting='natural', uvtaper=None, clean_up=True):
+def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True):
          
     suffix = uvtaper[0] if uvtaper else weighting
     dirty_path = path + '.' + suffix + '_dirty'
     clean_path = path + '.' + suffix + '_clean'
     
-    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path + '.' + suffix), shell=True)
-    print('==================================')
-    print('Making {}...'.format(clean_path))
-    print('==================================')
-    pipe(
+    commands = ()
+    # get rms from region if necessary
+    if type(rms) is str: 
+        commands += \
         ("tclean(",
             "vis='{}.ms',".format(path),
             "imagename='{}',".format(dirty_path),
@@ -39,24 +38,43 @@ def obs_clean(path, rms_region, mask, weighting='natural', uvtaper=None, clean_u
             "niter=0)"),
         ("rms = imstat("
             "imagename='{}.image',".format(dirty_path),
-            "region='{}', listit=False)['rms'][0]".format(rms_region)),
-        ("tclean(",
-            "vis='{}.ms',".format(path),
-            "imagename='{}',".format(clean_path),
-            "imsize=512,",
-            "cell='0.03arcsec',",
-            "weighting='{}',".format(weighting),
-            "uvtaper={},".format(uvtaper),
-            "niter=100000000,",
-            "threshold=rms/2.,",
-            "mask='{}')".format(mask)),
+            "region='{}', listit=False)['rms'][0]".format(rms))
+    else:
+        commands += ("rms = {}".format(rms),)
+        
+    # actually call tclean
+    commands += \
+    ("tclean(",
+        "vis='{}.ms',".format(path),
+        "imagename='{}',".format(clean_path),
+        "imsize=512,",
+        "cell='0.03arcsec',",
+        "weighting='{}',".format(weighting),
+        "uvtaper={},".format(uvtaper),
+        "niter=100000000,",
+        "threshold=rms/2.,",
+        "mask='{}')".format(mask)),
+        
+    # report clean rms if necessary
+    if type(rms) is str: 
+        commands += \
         ("clean_rms = imstat(",
             "imagename='{}.image',".format(clean_path),
-            "region='{}', listit=False)['rms'][0]".format(rms_region)),
+            "region='{}', listit=False)['rms'][0]".format(rms)),
         ("print('Clean rms is {}'.format(clean_rms))"),
-        ("exportfits(",
+        
+    # export to fits
+    commands += \
+    ("exportfits(",
         "imagename='{}.image',".format(clean_path),
-        "fitsimage='{}.fits')".format(clean_path)))
+        "fitsimage='{}.fits')".format(clean_path))
+    
+    
+    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path + '.' + suffix), shell=True)
+    print('==================================')
+    print('Making {}...'.format(clean_path))
+    print('==================================')
+    pipe(commands)
         
     #clean up dirty files (hehe)
     if clean_up:
