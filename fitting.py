@@ -180,7 +180,7 @@ class Model:
             'vis={}.vis'.format(path),
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
-            'fwhm=0.91',
+            # 'fwhm=0.91',
             'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'], stdout=open(os.devnull, 'wb'))
         # imstat_out=sp.check_output(['imstat',
         #     'in={}.mp'.format(path)])
