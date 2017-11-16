@@ -36,9 +36,12 @@ def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True)
             "weighting='{}',".format(weighting),
             "uvtaper={},".format(uvtaper),
             "niter=0)"),
+        commands += \
         ("rms = imstat("
             "imagename='{}.image',".format(dirty_path),
             "region='{}', listit=False)['rms'][0]".format(rms))
+        commands += \
+        ("print(rms)"),
     else:
         commands += ("rms = {}".format(rms),)
         
@@ -61,6 +64,7 @@ def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True)
         ("clean_rms = imstat(",
             "imagename='{}.image',".format(clean_path),
             "region='{}', listit=False)['rms'][0]".format(rms)),
+        commands += \
         ("print('Clean rms is {}'.format(clean_rms))"),
         
     # export to fits
