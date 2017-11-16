@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 import emcee
 from astrocail import plotting
+import time
 
 class MCMCrun:
     def __init__(self, name, nwalkers, path=None, burn_in=0):
@@ -168,34 +169,40 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
     pool.close()
     
 def run_emcee_simple(run_name, nsteps, nwalkers, lnprob, to_vary):
+    
+    start = time.time()
     # initiate sampler chain
     ndim = len(to_vary[0])
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=to_vary)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)
 
-    try:
-        chain = pd.read_csv(run_name + '/' + run_name + '_chain.csv')
-        start_step = chain.index[-1] // nwalkers
-        print('Resuming {} at step {}'.format(run_name, start_step))
-        pos = np.array(chain.iloc[-nwalkers:, :-1])
-        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
-            f.write('\n')
-            
-    except IOError:
+    # try:
+    #     chain = pd.read_csv(run_name + '/' + run_name + '_chain.csv')
+    #     start_step = chain.index[-1] // nwalkers
+    #     print('Resuming {} at step {}'.format(run_name, start_step))
+    #     pos = np.array(chain.iloc[-nwalkers:, :-1])
+    #     with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
+    #         f.write('\n')
+    #         
+    # except IOError:
         
-        sp.call(['mkdir', run_name])
-        sp.call(['mkdir', run_name + '/model_files'])
+    
+    sp.call('rm -rf ' + run_name, shell=True)
+    sp.call(['mkdir', run_name])
+    
+    print('Starting {}'.format(run_name))
+    start_step = 0
+    
+    with open(run_name + '/' + run_name + '_chain.csv', 'w') as f:
+        f.write(','.join([param[0] for param in to_vary] + ['lnprob']) + '\n')
         
-        print('Starting {}'.format(run_name))
-        start_step = 0
-        
-        with open(run_name + '/' + run_name + '_chain.csv', 'w') as f:
-            np.savetxt(f, (np.append([param[0] for param in to_vary[0]], 'lnprob'),), 
-                delimiter=',', fmt='%s')
-        pos = [[param[1] + param[2]*np.random.randn() for param in to_vary[0]] 
+        pos = [[param[1] + param[2]*np.random.randn() for param in to_vary] 
             for i in range(nwalkers)] 
             
-    for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
-        print("Step {}".format(start_step + i))
-        pos, chisum, blob = result
-        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f: 
-            np.savetxt(f, [np.append(pos[i], chisum[i]) for i in range(nwalkers)], delimiter=',')
+        for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
+            # print("Step {}".format(start_step + i))
+            pos, chisum, blob = result
+            for i in range(nwalkers):
+                f.write(','.join(map(str, np.append(pos[i], chisum[i]))) + '\n')
+    print('{} samples in {:.1f} seconds'.format(nsteps*nwalkers, time.time() - start))   
+    
+    return MCMCrun(run_name, nwalkers)
