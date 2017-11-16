@@ -138,10 +138,10 @@ class Model:
         """
         # array containing real/imaginary/weight values, squeeze empty dimensions
         data_rlimwt = obs.uvf[0].data['data'].squeeze()
-        
+
         # get weights--same for both xx and yy, arbitrarily choose xx (index 0)
         weights =  data_rlimwt[:,0,2]
-        
+
         # real and imaginary arrays in Stokes I
         if data_rlimwt.shape[1] == 2: # polarized; turn to stokes
             data_real = (data_rlimwt[:,0,0]+data_rlimwt[:,1,0])/2.
@@ -149,22 +149,22 @@ class Model:
         else: # already stokes
             data_real = data_rlimwt[:,0,0]
             data_imag = data_rlimwt[:,0,1]
-        
+
         # open model uvf, get rlimwt array again
         model_uvf  = fits.open(self.path + suffix + '.uvf')
         model_rlimwt = (model_uvf[0].data['data']).squeeze()
-        
+
         # get real and imaginary values, skipping repeating values created by uvmodel.
         # when uvmodel converts to Stokes I, it either puts the value in place
         # of BOTH xx and yy, or makes xx and yy the same.
         # either way, selecting every other value solves the problem.
         model_real = model_rlimwt[::2,0]
         model_imag = model_rlimwt[::2,1]
-        
+
         # Calculate chi^2
         chi = np.sum((data_real - model_real)**2 * weights +
                      (data_imag - model_imag)**2 * weights)
-        
+
         self.chis.append(chi)
 
     def clean(self, path, rms, show=True):
@@ -180,13 +180,14 @@ class Model:
             'vis={}.vis'.format(path),
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
-            # 'fwhm=0.91',
+            #'fwhm=0.91',
             'cell=0.03arcsec', 'imsize=512', 'options=systemp,mfs', 'robust=2'], stdout=open(os.devnull, 'wb'))
-        # imstat_out=sp.check_output(['imstat',
-        #     'in={}.mp'.format(path)])
-        # dirty_rms = float(imstat_out[-38:-29])
-        # print("Dirty rms is {} for {}".format(dirty_rms, path))
-        
+       # imstat_out=sp.check_output(['imstat',
+       #     'in={}.mp'.format(path),
+       #     "region='boxes(256,0,512,200)'"])
+       # dirty_rms = float(imstat_out[-38:-29])
+       # print("Dirty rms is {} for {}".format(dirty_rms, path))
+
         sp.call(['clean',
             'map={}.mp'.format(path),
             'beam={}.bm'.format(path),
@@ -197,10 +198,11 @@ class Model:
             'beam={}.bm'.format(path),
             'model={}.cl'.format(path),
             'out={}.cm'.format(path)], stdout=open(os.devnull, 'wb'))
-        # imstat_out=sp.check_output(['imstat',
-        #     'in={}.cm'.format(path)])
-        # rms = float(imstat_out[-38:-29])
-        # print("Clean rms is {} for {}".format(rms, path))
+        imstat_out=sp.check_output(['imstat',
+            'in={}.cm'.format(path),
+            "region='boxes(256,0,512,200)'"])
+        #rms = float(imstat_out[-38:-29])
+        #print("Clean rms is {} for {}".format(rms, path))
 
         # Convert MIRIAD .im image file into fits
         sp.call(['fits', 'op=xyout',
