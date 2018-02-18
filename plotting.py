@@ -22,7 +22,8 @@ class Figure:
     
     def __init__(self, paths, rmses, texts, layout=(1,1),  savefile='figure.pdf', title=None, show=False):
         rmses = np.array([rmses]) if type(rmses) is float else np.array(rmses)
-        texts = np.array([texts]) if type(texts) is str   else np.array(texts)
+        texts = np.array([texts], dtype=object) if type(texts) is str \
+            else np.array(texts, dtype=object)
         paths = np.array([paths]) if type(paths) is str   else np.array(paths)
         self.title = title
         self.rows, self.columns = layout
@@ -34,7 +35,8 @@ class Figure:
             sharex=False, sharey=False, squeeze=False)
         plt.subplots_adjust(wspace=-0.0)
         
-        for ax, path, rms, text  in zip(self.axes.flatten(), paths.flatten(), rmses.flatten(), texts.flatten()):
+        if type(texts.flatten()[0]) is not float: texts = texts.flatten()
+        for ax, path, rms, text  in zip(self.axes.flatten(), paths.flatten(), rmses.flatten(), texts):
             self.rms = rms
             self.get_fits(path)
             self.make_axis(ax)
@@ -96,9 +98,9 @@ class Figure:
         ax.tick_params(which='both', right='on', labelsize=18)
 
         # Set labels depending on position in figure
-        if np.where(self.axes == ax)[0] % self.columns == 0: #left
+        if np.where(self.axes == ax)[1] % self.columns == 0: #left
             ax.tick_params(axis='y', labelright='off', right='on')
-        elif np.where(self.axes == ax)[0] % self.columns == self.columns - 1: # right
+        elif np.where(self.axes == ax)[1] % self.columns == self.columns - 1: # right
             ax.set_xlabel('')
             ax.set_ylabel('')
             ax.tick_params(axis='y', labelleft='off', labelright='on')
@@ -192,22 +194,23 @@ class Figure:
             pass
 
         # Plot the scale bar
-        x = -3.015
-        y = -4.7
-        ax.plot(
-            [x, x - 1],
-            [y, y],
-            '-', linewidth=2, color='k')
-        ax.text(
-            x + 0.32, y + 0.15, "10 au",
-            fontsize=18,
-            path_effects=[PathEffects.withStroke(linewidth=2, foreground="w")])
+        if np.where(self.axes == ax)[1][0] == 0: #if first plot
+            x = -3.015
+            y = -4.7
+            ax.plot(
+                [x, x - 1],
+                [y, y],
+                '-', linewidth=2, color='k')
+            ax.text(
+                x + 0.32, y + 0.15, "10 au",
+                fontsize=18,
+                path_effects=[PathEffects.withStroke(linewidth=2, foreground="w")])
 
         # Plot a cross at the source position
         # ax.plot([0.0], [0.0], '+', markersize=6, markeredgewidth=1, color='w')
 
         # Add figure text
-        if text:
+        if text is not None:
             for t in text:
                 ax.text(*t, fontsize=18,
                     path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")])
@@ -219,7 +222,7 @@ class Figure:
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
             
-def my_kde(samples, ax=None, show=False):
+def my_kde(samples, ax=None, show=False, **kwargs):
     # if ax is None: fig, ax = plt.subplots()
 
     q1, q3 = samples.quantile([.25,.75])
