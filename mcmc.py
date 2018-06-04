@@ -41,8 +41,8 @@ class MCMCrun:
                 x=np.arange(stepmin, stepmax), subplots=True, ax=axes,
                 legend=False, color='black', alpha=0.1)
 
-        # make y-limits on lnprob subplot reasonable
-            axes[-1].set_ylim(main.iloc[-1, -1 * self.nwalkers:].min()-10, main.lnprob.max())
+            # make y-limits on lnprob subplot reasonable
+            axes[-1].set_ylim(main.iloc[-1 * self.nwalkers:, -1].min(), main.lnprob.max())
 
         # if you want mean at each step over plotted:
         # main.index //= self.nwalkers
@@ -56,11 +56,11 @@ class MCMCrun:
         print('Generating posterior kde plots...')
         plt.close()
 
-        nrows, ncols = (2, int(np.ceil(self.groomed.shape[1]/2.)))
+        nrows, ncols = (2, int( np.ceil( (self.groomed.shape[1] - 1) / 2. ) ) )
         fig, axes = plt.subplots(nrows, ncols, figsize=(2.5*ncols, 2.5*nrows))
 
         # plot kde of each free parameter
-        for i, param in enumerate(self.groomed.columns):
+        for i, param in enumerate(self.groomed.columns[:-1]):
             ax = axes.flatten()[i]
 
             for tick in ax.get_xticklabels(): tick.set_rotation(30)
@@ -89,12 +89,20 @@ class MCMCrun:
         # adjust spacing and save
         plt.tight_layout()
         plt.savefig(self.name + '/' + self.name + '_kde.png'.format(self.name))
+        plt.show()
 
 
     def corner(self, variables=None):
         """ Plot 'corner plot' of fit"""
         plt.close()
 
+        # get best_fit and posterior statistics
+        stats = self.groomed.describe(percentiles=[0.16,0.84]).drop(['count', 'min', 'max', 'mean'])
+        stats.loc['best fit'] = self.main.loc[self.main['lnprob'].idxmax()]
+        stats = stats.iloc[[-1]].append(stats.iloc[:-1])
+        stats.loc[['16%','84%'], :] -= stats.loc['50%',:]
+        stats = stats.reindex(['50%', '16%', '84%', 'best fit', 'std'], copy=False)
+        print(stats.T.round(6).to_string())
 
         # make corner plot
         corner = sns.PairGrid(data=self.groomed, diag_sharey=False, despine=False,
@@ -193,41 +201,47 @@ def run_emcee(run_name, nsteps, nwalkers, lnprob, to_vary):
 
     pool.close()
 
-def run_emcee_simple(run_name, nsteps, nwalkers, lnprob, to_vary, burn_in = 0):
+def run_emcee_simple(run_name, nsteps, nwalkers, lnprob, to_vary, burn_in=0, pool=False, resume=False):
+    if pool:
+        pool = MPIPool()
+        if not pool.is_master():
+            pool.wait()
+            sys.exit(0)
     
     start = time.time()
     # initiate sampler chain
     ndim = len(to_vary[0])
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool)
 
-    # try:
-    #     chain = pd.read_csv(run_name + '/' + run_name + '_chain.csv')
-    #     start_step = chain.index[-1] // nwalkers
-    #     print('Resuming {} at step {}'.format(run_name, start_step))
-    #     pos = np.array(chain.iloc[-nwalkers:, :-1])
-    #     with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
-    #         f.write('\n')
-    #         
-    # except IOError:
+    if resume:
+        chain = pd.read_csv(run_name + '/' + run_name + '_chain.csv')
+        start_step = chain.index[-1] // nwalkers
+        print('Resuming {} at step {}'.format(run_name, start_step))
         
-    
-    sp.call('rm -rf ' + run_name, shell=True)
-    sp.call(['mkdir', run_name])
-    
-    print('Starting {}'.format(run_name))
-    start_step = 0
-    
-    with open(run_name + '/' + run_name + '_chain.csv', 'w') as f:
-        f.write(','.join([param[0] for param in to_vary] + ['lnprob']) + '\n')
+        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
+            f.write('\n')
+        pos = np.array(chain.iloc[-nwalkers:, :-1])
         
+    else:
+        sp.call('rm -rf ' + run_name, shell=True)
+        sp.call(['mkdir', run_name])
+        print('Starting {}'.format(run_name))
+        start_step = 0
+    
+        with open(run_name + '/' + run_name + '_chain.csv', 'w') as f:
+            f.write(','.join([param[0] for param in to_vary] + ['lnprob']) + '\n')
         pos = [[param[1] + param[2]*np.random.randn() for param in to_vary] 
-            for i in range(nwalkers)] 
-            
-        for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
-            # print("Step {}".format(start_step + i))
-            pos, chisum, blob = result
+                for i in range(nwalkers)] 
+                
+    for i, result in enumerate(sampler.sample(pos, iterations=nsteps, storechain=False)):
+        print("Step {}".format(start_step + i))
+        pos, chisum, blob = result
+        with open(run_name + '/' + run_name + '_chain.csv', 'a') as f:
             for i in range(nwalkers):
                 f.write(','.join(map(str, np.append(pos[i], chisum[i]))) + '\n')
     print('{} samples in {:.1f} seconds'.format(nsteps*nwalkers, time.time() - start))   
+    
+    if pool:
+        pool.close()
     
     return MCMCrun(run_name, nwalkers, burn_in=burn_in)

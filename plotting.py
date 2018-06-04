@@ -70,6 +70,11 @@ class Figure:
 
 
     def make_axis(self, ax):
+        # Set seaborn plot styles and color pallete
+        sns.set_style("ticks",
+                      {"xtick.direction": "in",
+                       "ytick.direction": "in"})
+        sns.set_context("talk")
         
         xmin = -5.0
         xmax = 5.0
@@ -95,7 +100,7 @@ class Figure:
             ['', '', '-4', '', '-2', '', '0', '', '2', '', '4', ''], fontsize=18)
         ax.yaxis.set_ticklabels(
             ['', '', '-4', '', '-2', '', '0', '', '2', '', '4', ''], fontsize=18)
-        ax.tick_params(which='both', right='on', labelsize=18)
+        ax.tick_params(which='both', right='on', labelsize=18, direction='in')
 
         # Set labels depending on position in figure
         if np.where(self.axes == ax)[1] % self.columns == 0: #left
@@ -198,7 +203,7 @@ class Figure:
             x = -3.015
             y = -4.7
             ax.plot(
-                [x, x - 1],
+                [x, x - 10/9.725],
                 [y, y],
                 '-', linewidth=2, color='k')
             ax.text(
