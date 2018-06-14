@@ -203,7 +203,7 @@ class Figure:
             x = -3.015
             y = -4.7
             ax.plot(
-                [x, x - 1],
+                [x, x - 10/9.725],
                 [y, y],
                 '-', linewidth=2, color='k')
             ax.text(

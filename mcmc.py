@@ -89,6 +89,7 @@ class MCMCrun:
         # adjust spacing and save
         plt.tight_layout()
         plt.savefig(self.name + '/' + self.name + '_kde.png'.format(self.name))
+        plt.show()
 
 
     def corner(self, variables=None):
