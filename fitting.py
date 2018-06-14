@@ -1,9 +1,11 @@
-from astropy.io import fits
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import subprocess as sp
+from astropy.io import fits
 import os
+from galario.double import chi2Image
+from scipy.optimize import curve_fit
 
 class Observation:
     def __init__(self, root, name,  rms):
@@ -90,6 +92,21 @@ class Model:
     def delete(self):
         sp.call('rm -rf {}*'.format(self.path), shell=True)
 
+    def make_residuals(self, obs, suffix='', show=False):
+
+        """
+        Create model residuals (data - model), and clean//display if desired
+        """
+        sp.call('rm -rf *.residuals.vis'.format(self.path + suffix), shell=True)
+
+        # Subtract model visibilities from data; outfile is residual visibilities
+        sp.call(['uvmodel', 'options=subtract',
+            'vis={}.vis'.format(obs.path),
+            'model={}.im'.format(self.path + suffix),
+            'out={}.residuals.vis'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'))
+
+        if show == True:
+            self.clean(obs, residual=True)
 
     def obs_sample(self, obs, suffix=''):
         """
@@ -115,57 +132,6 @@ class Model:
         sp.call(['fits', 'op=uvout',
             'in={}.vis'.format(self.path + suffix),
             'out={}.uvf'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'), stderr=open(os.devnull, 'wb'))
-
-    def make_residuals(self, obs, suffix='', show=False):
-
-        """
-        Create model residuals (data - model), and clean//display if desired
-        """
-        sp.call('rm -rf *.residuals.vis'.format(self.path + suffix), shell=True)
-
-        # Subtract model visibilities from data; outfile is residual visibilities
-        sp.call(['uvmodel', 'options=subtract',
-            'vis={}.vis'.format(obs.path),
-            'model={}.im'.format(self.path + suffix),
-            'out={}.residuals.vis'.format(self.path + suffix)], stdout=open(os.devnull, 'wb'))
-
-        if show == True:
-            self.clean(obs, residual=True)
-
-    def get_chi(self, obs, suffix=''):
-        """
-        Return chi^2 statistics of model.
-        """
-        # array containing real/imaginary/weight values, squeeze empty dimensions
-        data_rlimwt = obs.uvf[0].data['data'].squeeze()
-
-        # get weights--same for both xx and yy, arbitrarily choose xx (index 0)
-        weights =  data_rlimwt[:,0,2]
-
-        # real and imaginary arrays in Stokes I
-        if data_rlimwt.shape[1] == 2: # polarized; turn to stokes
-            data_real = (data_rlimwt[:,0,0]+data_rlimwt[:,1,0])/2.
-            data_imag = (data_rlimwt[:,0,1]+data_rlimwt[:,1,1])/2.
-        else: # already stokes
-            data_real = data_rlimwt[:,0,0]
-            data_imag = data_rlimwt[:,0,1]
-
-        # open model uvf, get rlimwt array again
-        model_uvf  = fits.open(self.path + suffix + '.uvf')
-        model_rlimwt = (model_uvf[0].data['data']).squeeze()
-
-        # get real and imaginary values, skipping repeating values created by uvmodel.
-        # when uvmodel converts to Stokes I, it either puts the value in place
-        # of BOTH xx and yy, or makes xx and yy the same.
-        # either way, selecting every other value solves the problem.
-        model_real = model_rlimwt[::2,0]
-        model_imag = model_rlimwt[::2,1]
-
-        # Calculate chi^2
-        chi = np.sum((data_real - model_real)**2 * weights +
-                     (data_imag - model_imag)**2 * weights)
-
-        self.chis.append(chi)
 
     def clean(self, path, rms, show=True):
         """
@@ -225,7 +191,84 @@ class Model:
                 'labtyp=arcsec', 'beamtyp=b,l,3',])
             raw_input('\npress enter when ready to go on:')
 
+    def get_chi(self, obs, suffix=''):
+        """
+        Return chi^2 statistics of model.
+        """
+        # array containing real/imaginary/weight values, squeeze empty dimensions
+        data_rlimwt = obs.uvf[0].data['data'].squeeze()
+        freq0 = obs.uvf[0].header['crval4']
+
+        # get weights--same for both xx and yy, arbitrarily choose xx (index 0)
+        weights = data_rlimwt[:,0,2]
+
+        # real and imaginary arrays in Stokes I
+        if data_rlimwt.shape[1] == 2: # polarized; turn to stokes
+            data_real = (data_rlimwt[:,0,0]+data_rlimwt[:,1,0])/2.
+            data_imag = (data_rlimwt[:,0,1]+data_rlimwt[:,1,1])/2.
+        else: # already stokes
+            data_real = data_rlimwt[:,0,0]
+            data_imag = data_rlimwt[:,0,1]
+
+        # open model uvf, get rlimwt array again
+        model_uvf  = fits.open(self.path + suffix + '.uvf')
+        model_rlimwt = (model_uvf[0].data['data']).squeeze()
+
+        # get real and imaginary values, skipping repeating values created by uvmodel.
+        # when uvmodel converts to Stokes I, it either puts the value in place
+        # of BOTH xx and yy, or makes xx and yy the same.
+        # either way, selecting every other value solves the problem.
+        model_real = model_rlimwt[::2,0]
+        model_imag = model_rlimwt[::2,1]
+
+        # Calculate chi^2
+        chi = np.sum((data_real - model_real)**2 * weights +
+                     (data_imag - model_imag)**2 * weights)
+
+        self.chis.append(chi)
+        
+    def get_chi_galario(self, obs, plot_resid=False):
+
+        # - Read in observation visibilities
+        freq0 = obs.uvf[0].header['crval4']
+        uu = np.ascontiguousarray(obs.uvf[0].data['UU']*freq0, np.float64)
+        vv = np.ascontiguousarray(obs.uvf[0].data['VV']*freq0, np.float64)
+        vis_rlimwt = np.ascontiguousarray(obs.uvf[0].data['data'].squeeze(), np.float64)
+        
+        # real and imaginary arrays in Stokes I
+        if vis_rlimwt.shape[1] == 2: # polarized; turn to stokes
+            vis_real = (vis_rlimwt[:,0,0]+vis_rlimwt[:,1,0])/2.
+            vis_imag = (vis_rlimwt[:,0,1]+vis_rlimwt[:,1,1])/2.
+        else: # already stokes
+            vis_real = vis_rlimwt[:,0,0]
+            vis_imag = vis_rlimwt[:,0,1]
+        # get weights--same for both xx and yy, arbitrarily choose xx (index 0)
+        vis_weights = np.ascontiguousarray(vis_rlimwt[:,0,2])
+
+        #Generate model visibilities
+        model_fits  = fits.open(self.path + '.fits')
+        model_image = np.ascontiguousarray(model_fits[0].data.squeeze(), np.float64)
+        dxy = np.radians(np.abs(model_fits[0].header['cdelt1']))
+        model_fits.close()
+        
+        chi = chi2Image(model_image, dxy, uu, vv, vis_real, vis_imag, vis_weights)
+        self.chis.append(chi)
+
     def view_fits(self):
         model_image = fits.getdata(self.path + '.fits')[0]
         plt.imshow(model_image, origin='lower')
         plt.show(block=False)
+    
+        
+        '''Calculate the raw chi-squared based on the difference between the model and data visibilities.
+        :param datfile: (default = 'data/HD163296.CO32.regridded.cen15')
+         The base name for the data file. The code reads in the visibilities from datfile+'.vis.fits'
+         :param modfile" (default='model/testpy_alma')
+         The base name for the model file. The code reads in the visibilities from modfile+'.model.vis.fits'
+         :param new_weight:
+         An array containing the weights to be used in the chi-squared calculation. This should have the same dimensions as the real and imaginary part of the visibilities (ie Nbas x Nchan)
+         :param systematic:
+         The systematic weight to be applied. The value sent with this keyword is used to scale the absolute flux level of the model. It is defined such that a value >1 decreases the model and a value <1 increases the model (the model visibilities are divided by the systematic parameter). It is meant to mimic a true flux in the data which is larger or smaller by the fraction systematic (e.g. specifying systematic=1.2 is equivalent to saying that the true flux of the data is 20% brighter than what has been observed, with this scaling applied to the model instead of changing the data)
+         :param isgas:
+         If the data is line emission then the data has an extra dimension covering the >1 channels. Set this keyword to ensure that the data is read in properly. Conversely, if you are comparing continuum data then set this keyword to False.
+    '''

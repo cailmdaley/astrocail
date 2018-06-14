@@ -22,7 +22,8 @@ class Figure:
     
     def __init__(self, paths, rmses, texts, layout=(1,1),  savefile='figure.pdf', title=None, show=False):
         rmses = np.array([rmses]) if type(rmses) is float else np.array(rmses)
-        texts = np.array([texts]) if type(texts) is str   else np.array(texts)
+        texts = np.array([texts], dtype=object) if type(texts) is str \
+            else np.array(texts, dtype=object)
         paths = np.array([paths]) if type(paths) is str   else np.array(paths)
         self.title = title
         self.rows, self.columns = layout
@@ -34,6 +35,7 @@ class Figure:
             sharex=False, sharey=False, squeeze=False)
         plt.subplots_adjust(wspace=-0.0)
         
+        if type(texts.flatten()[0]) is not float: texts = texts.flatten()
         for ax, path, rms, text  in zip(self.axes.flatten(), paths.flatten(), rmses.flatten(), texts):
             self.rms = rms
             self.get_fits(path)
@@ -68,6 +70,11 @@ class Figure:
 
 
     def make_axis(self, ax):
+        # Set seaborn plot styles and color pallete
+        sns.set_style("ticks",
+                      {"xtick.direction": "in",
+                       "ytick.direction": "in"})
+        sns.set_context("talk")
         
         xmin = -5.0
         xmax = 5.0
@@ -93,7 +100,7 @@ class Figure:
             ['', '', '-4', '', '-2', '', '0', '', '2', '', '4', ''], fontsize=18)
         ax.yaxis.set_ticklabels(
             ['', '', '-4', '', '-2', '', '0', '', '2', '', '4', ''], fontsize=18)
-        ax.tick_params(which='both', right='on', labelsize=18)
+        ax.tick_params(which='both', right='on', labelsize=18, direction='in')
 
         # Set labels depending on position in figure
         if np.where(self.axes == ax)[1] % self.columns == 0: #left
@@ -220,7 +227,7 @@ class Figure:
             plt.imshow(self.im, origin='lower')
             plt.show(block=False)
             
-def my_kde(samples, ax=None, show=False):
+def my_kde(samples, ax=None, show=False, **kwargs):
     # if ax is None: fig, ax = plt.subplots()
 
     q1, q3 = samples.quantile([.25,.75])

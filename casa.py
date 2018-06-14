@@ -18,19 +18,19 @@ def concat(infiles, outfile):
         "concatvis='{}.ms', dirtol='2arcsec')".format(outfile)))
     return outfile
     
-def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True):
+def obs_clean(filename, rms, mask, weighting='natural', uvtaper=None, extension='.ms', clean_up=True):
          
-    suffix = uvtaper[0] if uvtaper else weighting
-    dirty_path = path + '.' + suffix + '_dirty'
-    clean_path = path + '.' + suffix + '_clean'
+    suffix = uvtaper[0] if uvtaper is not None else weighting
+    dirty_filename = filename + '.' + suffix + '_dirty'
+    clean_filename = filename + '.' + suffix + '_clean'
     
     commands = ()
     # get rms from region if necessary
     if type(rms) is str: 
         commands += \
         ("tclean(",
-            "vis='{}.ms',".format(path),
-            "imagename='{}',".format(dirty_path),
+            "vis='{}',".format(filename + extension),
+            "imagename='{}',".format(dirty_filename),
             "imsize=512,",
             "cell='0.03arcsec',",
             "weighting='{}',".format(weighting),
@@ -38,7 +38,7 @@ def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True)
             "niter=0)"),
         commands += \
         ("rms = imstat("
-            "imagename='{}.image',".format(dirty_path),
+            "imagename='{}.image',".format(dirty_filename),
             "region='{}', listit=False)['rms'][0]".format(rms))
         commands += \
         ("print(rms)"),
@@ -48,8 +48,8 @@ def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True)
     # actually call tclean
     commands += \
     ("tclean(",
-        "vis='{}.ms',".format(path),
-        "imagename='{}',".format(clean_path),
+        "vis='{}',".format(filename + extension),
+        "imagename='{}',".format(clean_filename),
         "imsize=512,",
         "cell='0.03arcsec',",
         "weighting='{}',".format(weighting),
@@ -62,7 +62,7 @@ def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True)
     if type(rms) is str: 
         commands += \
         ("clean_rms = imstat(",
-            "imagename='{}.image',".format(clean_path),
+            "imagename='{}.image',".format(clean_filename),
             "region='{}', listit=False)['rms'][0]".format(rms)),
         commands += \
         ("print('Clean rms is {}'.format(clean_rms))"),
@@ -70,19 +70,19 @@ def obs_clean(path, rms, mask, weighting='natural', uvtaper=None, clean_up=True)
     # export to fits
     commands += \
     ("exportfits(",
-        "imagename='{}.image',".format(clean_path),
-        "fitsimage='{}.fits')".format(clean_path))
+        "imagename='{}.image',".format(clean_filename),
+        "fitsimage='{}.fits')".format(clean_filename))
     
     
-    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path + '.' + suffix), shell=True)
+    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(filename + '.' + suffix), shell=True)
     print('==================================')
-    print('Making {}...'.format(clean_path))
+    print('Making {}...'.format(clean_filename))
     print('==================================')
     pipe(commands)
         
     #clean up dirty files (hehe)
     if clean_up:
-        sp.call('rm -rf {}*{{dirty.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(path + '.' + suffix), shell=True)
+        sp.call('rm -rf {}*{{dirty.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(filename + '.' + suffix), shell=True)
     
     # if view:
     #     #Show dirty image, then clean up and delete all dirty clean files
