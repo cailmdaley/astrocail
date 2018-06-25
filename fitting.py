@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import subprocess as sp
 from astropy.io import fits
 import os
-from galario.double import chi2Image
+# from galario.double import chi2Image
 from scipy.optimize import curve_fit
 
 class Observation:

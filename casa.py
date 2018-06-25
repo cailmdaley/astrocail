@@ -3,22 +3,24 @@ import numpy as np
 
 def pipe(commands):
     call_string = '\n'.join([command if type(command) is str else '\n'.join(command) for command in commands])
+    
     print('Piping the following commands to CASA:\n')
     print(call_string)
-    sp.call(['casa', '--nologfile', '-c', call_string])
+    sp.call(['casa', '-c', call_string])
     
     # clean up .log files that casa poops out
     sp.call('rm -rf *.log', shell=True)
             
 def concat(infiles, outfile):
     
-    sp.call("rm -rf {}.ms".format(outfile), shell=True)
+    sp.call("rm -rf {}".format(outfile), shell=True)
     pipe(("concat(",
         "vis={},".format(infiles), 
-        "concatvis='{}.ms', dirtol='2arcsec')".format(outfile)))
-    return outfile
+        "concatvis='{}', dirtol='2arcsec')".format(outfile)))
     
-def obs_clean(filename, rms, mask, weighting='natural', uvtaper=None, extension='.ms', clean_up=True):
+def obs_clean(filename, rms, mask, 
+    input_dir = '', output_dir = '', extension='.ms', 
+    datacolumn='corrected', weighting='natural', uvtaper=None, clean_up=True):
          
     suffix = uvtaper[0] if uvtaper is not None else weighting
     dirty_filename = filename + '.' + suffix + '_dirty'
@@ -29,60 +31,66 @@ def obs_clean(filename, rms, mask, weighting='natural', uvtaper=None, extension=
     if type(rms) is str: 
         commands += \
         ("tclean(",
-            "vis='{}',".format(filename + extension),
-            "imagename='{}',".format(dirty_filename),
-            "imsize=512,",
-            "cell='0.03arcsec',",
-            "weighting='{}',".format(weighting),
-            "uvtaper={},".format(uvtaper),
-            "niter=0)"),
+            "vis        = '{}',".format(input_dir + filename + extension),
+            "datacolumn = '{}',".format(datacolumn),
+            "imagename  = '{}',".format(output_dir + dirty_filename),
+            "imsize     = 512,",
+            "cell       = '0.03arcsec',",
+            "weighting  = '{}',".format(weighting),
+            "uvtaper    = {},".format(uvtaper),
+            "niter      = 0)"),
         commands += \
         ("rms = imstat("
-            "imagename='{}.image',".format(dirty_filename),
+            "imagename='{}.image',".format(output_dir + dirty_filename),
             "region='{}', listit=False)['rms'][0]".format(rms))
         commands += \
-        ("print(rms)"),
+        ("print('Dirty rms is {}'.format(rms))"),
     else:
         commands += ("rms = {}".format(rms),)
         
     # actually call tclean
     commands += \
     ("tclean(",
-        "vis='{}',".format(filename + extension),
-        "imagename='{}',".format(clean_filename),
-        "imsize=512,",
-        "cell='0.03arcsec',",
-        "weighting='{}',".format(weighting),
-        "uvtaper={},".format(uvtaper),
-        "niter=100000000,",
-        "threshold=rms/2.,",
-        "mask='{}')".format(mask)),
+        "vis        = '{}',".format(input_dir + filename + extension),
+        "datacolumn = '{}',".format(datacolumn),
+        "imagename  = '{}',".format(output_dir + clean_filename),
+        "imsize     = 512,",
+        "cell       = '0.03arcsec',",
+        "weighting  = '{}',".format(weighting),
+        "uvtaper    = {},".format(uvtaper),
+        "niter      = 100000000,",
+        "threshold  = rms/2.,",
+        "mask       = '{}')".format(mask)),
         
     # report clean rms if necessary
     if type(rms) is str: 
         commands += \
-        ("clean_rms = imstat(",
-            "imagename='{}.image',".format(clean_filename),
-            "region='{}', listit=False)['rms'][0]".format(rms)),
+        ("clean_rms    = imstat(",
+            "imagename = '{}.image',".format(output_dir + clean_filename),
+            "region    = '{}', listit=False)['rms'][0]".format(rms)),
         commands += \
         ("print('Clean rms is {}'.format(clean_rms))"),
         
     # export to fits
     commands += \
     ("exportfits(",
-        "imagename='{}.image',".format(clean_filename),
-        "fitsimage='{}.fits')".format(clean_filename))
+        "imagename = '{}.image',".format(output_dir + clean_filename),
+        "fitsimage = '{}.fits')".format(output_dir + clean_filename))
     
     
-    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(filename + '.' + suffix), shell=True)
-    print('==================================')
+    sp.call('rm -rf {}*{{.fits,.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(output_dir + filename + '.' + suffix), shell=True)
+    print('')
+    print('=========================================================')
+    print('=========================================================')
     print('Making {}...'.format(clean_filename))
-    print('==================================')
+    print('=========================================================')
+    print('=========================================================')
+    print('')
     pipe(commands)
         
     #clean up dirty files (hehe)
     if clean_up:
-        sp.call('rm -rf {}*{{dirty.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(filename + '.' + suffix), shell=True)
+        sp.call('rm -rf {}*{{dirty.image,.mask,.model,.pb,.psf,.residual,.sumwt}}'.format(output_dir + filename + '.' + suffix), shell=True)
     
     # if view:
     #     #Show dirty image, then clean up and delete all dirty clean files
